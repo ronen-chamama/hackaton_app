@@ -1,26 +1,188 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Base design token layer
+   All semantic tokens are CSS custom properties consumed by Tailwind v4.
+   Themes override these variables at the [data-theme] attribute level.
+   --------------------------------------------------------------------------- */
+
 :root {
+  /* Surface */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f0f0f;
+  --surface: #f8f8f8;
+  --surface-raised: #ffffff;
+  --border: #e2e2e2;
+
+  /* Brand palette */
+  --color-primary: #2563eb;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #7c3aed;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #0ea5e9;
+  --color-accent-foreground: #ffffff;
+
+  /* Semantic states */
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-danger: #dc2626;
+  --color-info: #0284c7;
+
+  /* Typography scale */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  --font-size-4xl: 2.25rem;
+
+  /* Spacing scale */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
+
+/* ---------------------------------------------------------------------------
+   Tailwind v4 theme registration
+   Maps CSS custom properties to Tailwind utility names.
+   --------------------------------------------------------------------------- */
 
 @theme inline {
+  /* Font family — Heebo is the RTL-capable primary font */
+  --font-sans: var(--font-heebo), system-ui, sans-serif;
+
+  /* Surface tokens */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-border: var(--border);
+
+  /* Brand tokens */
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-foreground: var(--color-secondary-foreground);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-accent-foreground);
+
+  /* State tokens */
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ---------------------------------------------------------------------------
+   Theme overrides
+   Applied via data-theme attribute on <html> or a parent container.
+   Each theme overrides the root custom properties defined above.
+   --------------------------------------------------------------------------- */
+
+[data-theme="simple"] {
+  --color-primary: #374151;
+  --color-secondary: #6b7280;
+  --color-accent: #9ca3af;
+  --background: #ffffff;
+  --foreground: #111827;
+  --border: #d1d5db;
 }
+
+[data-theme="pleasant"] {
+  --color-primary: #0d9488;
+  --color-secondary: #6366f1;
+  --color-accent: #f59e0b;
+  --background: #f0fdfa;
+  --foreground: #134e4a;
+  --border: #99f6e4;
+}
+
+[data-theme="formal"] {
+  --color-primary: #1e3a5f;
+  --color-secondary: #7c6d5a;
+  --color-accent: #b8860b;
+  --background: #fafaf8;
+  --foreground: #1a1a1a;
+  --border: #c5b9a8;
+}
+
+[data-theme="playful"] {
+  --color-primary: #ec4899;
+  --color-secondary: #f97316;
+  --color-accent: #a855f7;
+  --background: #fdf4ff;
+  --foreground: #1a0033;
+  --border: #f0abfc;
+}
+
+[data-theme="subversive"] {
+  --color-primary: #dc2626;
+  --color-secondary: #1d1d1d;
+  --color-accent: #facc15;
+  --background: #0f0f0f;
+  --foreground: #f5f5f5;
+  --border: #333333;
+}
+
+[data-theme="print"] {
+  --color-primary: #000000;
+  --color-secondary: #444444;
+  --color-accent: #000000;
+  --background: #ffffff;
+  --foreground: #000000;
+  --border: #cccccc;
+}
+
+[data-theme="tech"] {
+  --color-primary: #06b6d4;
+  --color-secondary: #8b5cf6;
+  --color-accent: #10b981;
+  --background: #0a0a1a;
+  --foreground: #e2e8f0;
+  --border: #1e293b;
+}
+
+[data-theme="social"] {
+  --color-primary: #3b82f6;
+  --color-secondary: #ef4444;
+  --color-accent: #f59e0b;
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+  --border: #cbd5e1;
+}
+
+/* ---------------------------------------------------------------------------
+   Global RTL base styles
+   --------------------------------------------------------------------------- */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  direction: rtl;
+  text-align: start;
+}
+
+/* Print-specific RTL reset */
+@media print {
+  html,
+  body {
+    direction: rtl;
+  }
 }
