@@ -301,6 +301,9 @@ export default function StudentRuntimePage() {
           hackathonId={activeHackathon.id}
           groupId={groupId}
           userId={userId}
+          groupMembers={groupMembers}
+          groupName={groupName}
+          hackathonName={activeHackathon.definition.title || activeHackathon.title}
           onValueSaved={(saved) => {
             setGroupValues((prev) => ({
               ...prev,

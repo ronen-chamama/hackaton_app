@@ -36,6 +36,10 @@ function revalidateAdmin() {
   revalidatePath("/admin");
 }
 
+function revalidateBuilder(hackathonId: string) {
+  revalidatePath(`/admin/builder/${hackathonId}`);
+}
+
 export async function createHackathon(formData: FormData) {
   const actionClient = await createClient();
 
@@ -241,5 +245,35 @@ export async function saveAsTemplate(
   }
 
   revalidateAdmin();
+  return { ok: true };
+}
+
+export async function updateHackathonSettings(
+  hackathonId: string,
+  title: string,
+  description: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const id = hackathonId.trim();
+  const nextTitle = title.trim();
+  const nextDescription = description.trim();
+
+  if (!id || !nextTitle) {
+    return { ok: false, error: t("errorGeneric") };
+  }
+
+  const actionClient = await createClient();
+  const { error } = await actionClient
+    .from("hackathons")
+    .update({ title: nextTitle, description: nextDescription })
+    .eq("id", id)
+    .eq("is_template", false);
+
+  if (error) {
+    return { ok: false, error: t("errorGeneric") };
+  }
+
+  revalidateAdmin();
+  revalidateBuilder(id);
+  revalidatePath("/");
   return { ok: true };
 }

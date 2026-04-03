@@ -3,12 +3,18 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { t } from "@/lib/i18n";
+import { asTagPosition, asTagSize, getTagPositionClasses, getTagSizeClasses } from "@/lib/utils/tag";
 
 interface SortableElementBlockProps {
   sortableId: string;
   elementTypeLabel: string;
   isSelected: boolean;
   badgeText?: string;
+  tagPosition?: string;
+  tagSize?: string;
+  emojiIcon?: string;
+  borderWidth?: number;
+  borderColor?: string;
   styleOverrides?: {
     textColor?: string;
     backgroundColor?: string;
@@ -22,6 +28,7 @@ interface SortableElementBlockProps {
     location: {
       stageId: string;
       containerId: string;
+      rowId: string;
       columnId: string;
       elementId: string;
     };
@@ -34,6 +41,11 @@ export function SortableElementBlock({
   elementTypeLabel,
   isSelected,
   badgeText,
+  tagPosition,
+  tagSize,
+  emojiIcon,
+  borderWidth,
+  borderColor,
   styleOverrides,
   onSelect,
   onDelete,
@@ -58,16 +70,16 @@ export function SortableElementBlock({
         ? "shadow-md"
         : styleOverrides?.shadow === "lg"
           ? "shadow-lg"
-          : "";
+        : "";
+  const resolvedTagPosition = asTagPosition(tagPosition);
+  const resolvedTagSize = asTagSize(tagSize);
 
   return (
     <div
       ref={setNodeRef}
-      role="button"
-      tabIndex={0}
       {...attributes}
       {...listeners}
-      className={`relative rounded border px-2 py-2 text-xs ${borderClass} ${shadowClass} ${
+      className={`relative overflow-visible rounded border px-2 py-2 text-xs ${borderClass} ${shadowClass} ${
         isSelected ? "border-primary bg-primary/10" : "border-border bg-background"
       } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
       style={{
@@ -76,6 +88,8 @@ export function SortableElementBlock({
         opacity: isDragging ? 0.6 : 1,
         color: styleOverrides?.textColor || undefined,
         backgroundColor: styleOverrides?.backgroundColor || undefined,
+        borderWidth: typeof borderWidth === "number" ? `${borderWidth}px` : undefined,
+        borderColor: borderColor || undefined,
       }}
       onClick={onSelect}
       onKeyDown={(event) => {
@@ -85,9 +99,16 @@ export function SortableElementBlock({
       }}
     >
       {badgeText ? (
-        <span className="absolute -top-2 -right-2 rounded-full border border-border bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground">
+        <span
+          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+            resolvedTagPosition
+          )} ${getTagSizeClasses(resolvedTagSize)}`}
+        >
           {badgeText}
         </span>
+      ) : null}
+      {emojiIcon ? (
+        <span className="absolute left-2 top-1 text-2xl leading-none">{emojiIcon}</span>
       ) : null}
       <div className="font-medium">{elementTypeLabel}</div>
       <button

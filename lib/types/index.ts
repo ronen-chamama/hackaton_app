@@ -33,7 +33,9 @@ export type ElementType =
   | "hero"
   | "alert"
   | "list"
+  | "info-card"
   | "icon_card"
+  | "link_button"
   // Input
   | "short_text"
   | "long_text"
@@ -55,20 +57,45 @@ export interface Element {
   [key: string]: unknown;
 }
 
+export interface LayoutSettings {
+  badge?: string;
+  tagPosition?:
+    | "top-right"
+    | "top-left"
+    | "bottom-right"
+    | "bottom-left"
+    | "top-center"
+    | "bottom-center";
+  tagSize?: "small" | "medium" | "large";
+  emojiIcon?: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+}
+
 export interface Column {
   id: string;
   elements: Element[];
+  settings?: LayoutSettings;
+}
+
+export interface Row {
+  id: string;
+  columns: Column[];
+  settings?: LayoutSettings;
 }
 
 export interface Container {
   id: string;
-  columns: Column[];
+  rows: Row[];
+  settings?: LayoutSettings;
 }
 
 export interface Stage {
   id: string;
   title: string;
   containers: Container[];
+  settings?: LayoutSettings;
 }
 
 export interface ThemeTokens {

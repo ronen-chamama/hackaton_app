@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import * as icons from "lucide-react";
 import { Search, Star, type LucideIcon } from "lucide-react";
 import { t } from "@/lib/i18n";
@@ -189,14 +190,65 @@ function renderIcon(iconName: string, props?: { className?: string; size?: numbe
 export function IconPicker({ value, onChange }: IconPickerProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const PANEL_WIDTH = 360;
+  const PANEL_HEIGHT = 400;
+  const COLLISION_PADDING = 20;
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const updatePosition = () => {
+      const trigger = rootRef.current;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+
+      // Open towards the center (like side="left" + align="end")
+      let left = rect.right - PANEL_WIDTH;
+      left = Math.max(
+        COLLISION_PADDING,
+        Math.min(left, window.innerWidth - PANEL_WIDTH - COLLISION_PADDING)
+      );
+
+      // collisionPadding equivalent + avoidCollisions behavior
+      let top = rect.bottom + 8;
+      if (top + PANEL_HEIGHT > window.innerHeight - COLLISION_PADDING) {
+        top = Math.max(COLLISION_PADDING, rect.top - PANEL_HEIGHT - 8);
+      }
+
+      setPopoverStyle({ top, left });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     const handleOutside = (event: MouseEvent) => {
-      if (!rootRef.current) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
         return;
       }
-      if (event.target instanceof Node && !rootRef.current.contains(event.target)) {
+
+      const clickedTrigger = rootRef.current?.contains(target) ?? false;
+      const clickedPanel = panelRef.current?.contains(target) ?? false;
+
+      if (!clickedTrigger && !clickedPanel) {
         setIsOpen(false);
       }
     };
@@ -218,7 +270,7 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
   const activeName = LUCIDE_ICON_NAMES.find((name) => name === value) ?? "Star";
 
   return (
-    <div ref={rootRef} className="relative inline-block">
+    <div ref={rootRef} className="inline-block">
       <button
         type="button"
         className="flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-background shadow-sm transition-colors hover:bg-surface"
@@ -229,48 +281,55 @@ export function IconPicker({ value, onChange }: IconPickerProps) {
         {renderIcon(activeName, { className: "h-5 w-5" })}
       </button>
 
-      {isOpen ? (
-        <div className="absolute end-0 top-full z-50 mt-2 w-[360px] rounded-xl border border-border bg-surface shadow-xl">
-          <div className="relative border-b border-border p-3">
-            <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" />
-            <input
-              type="text"
-              value={query}
-              placeholder={t("searchIcons")}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 pe-8 text-sm"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </div>
-
-          <div className="h-[320px] overflow-y-auto scrollbar-hide">
+      {isOpen && typeof document !== "undefined"
+        ? createPortal(
             <div
-              className="grid grid-cols-8 gap-1 p-2 overflow-y-auto"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
-              }}
+              ref={panelRef}
+              className="fixed z-[100] w-[360px] rounded-xl border border-border bg-surface shadow-xl"
+              style={{ top: popoverStyle.top, left: popoverStyle.left }}
             >
-              {filteredNames.map((iconName) => (
-                <button
-                  key={iconName}
-                  type="button"
-                  className={`aspect-square w-10 h-10 flex items-center justify-center rounded-md border border-transparent hover:border-primary/30 hover:bg-surface-raised transition-all cursor-pointer ${
-                    value === iconName ? "bg-primary/10 border-primary" : ""
-                  }`}
-                  onClick={() => {
-                    onChange(iconName);
-                    setIsOpen(false);
+              <div className="relative border-b border-border p-3">
+                <Search className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/60" />
+                <input
+                  type="text"
+                  value={query}
+                  placeholder={t("searchIcons")}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 pe-8 text-sm"
+                  onChange={(event) => setQuery(event.target.value)}
+                />
+              </div>
+
+              <div className="h-[320px] overflow-y-auto scrollbar-hide">
+                <div
+                  className="grid grid-cols-8 gap-1 p-2 overflow-y-auto"
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
                   }}
-                  title={iconName}
-                  aria-label={iconName}
                 >
-                  {renderIcon(iconName, { size: 20, className: "text-foreground/80" })}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+                  {filteredNames.map((iconName) => (
+                    <button
+                      key={iconName}
+                      type="button"
+                      className={`aspect-square w-10 h-10 flex items-center justify-center rounded-md border border-transparent hover:border-primary/30 hover:bg-surface-raised transition-all cursor-pointer ${
+                        value === iconName ? "bg-primary/10 border-primary" : ""
+                      }`}
+                      onClick={() => {
+                        onChange(iconName);
+                        setIsOpen(false);
+                      }}
+                      title={iconName}
+                      aria-label={iconName}
+                    >
+                      {renderIcon(iconName, { size: 20, className: "text-foreground/80" })}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

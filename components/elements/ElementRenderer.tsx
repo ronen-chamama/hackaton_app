@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { AlertElement } from "@/components/elements/display/AlertElement";
 import { CardBuilderElement } from "@/components/elements/complex/CardBuilderElement";
+import { InfoCardElement } from "@/components/elements/display/InfoCardElement";
 import { OptionsBuilderElement } from "@/components/elements/complex/OptionsBuilderElement";
 import { PitchElement } from "@/components/elements/complex/PitchElement";
 import { PositionPaperElement } from "@/components/elements/complex/PositionPaperElement";
@@ -11,6 +12,7 @@ import { HeadingElement } from "@/components/elements/display/HeadingElement";
 import { HeroElement } from "@/components/elements/display/HeroElement";
 import { IconCardElement } from "@/components/elements/display/IconCardElement";
 import { ImageElement } from "@/components/elements/display/ImageElement";
+import { LinkButtonElement } from "@/components/elements/display/LinkButtonElement";
 import { ListElement } from "@/components/elements/display/ListElement";
 import { TextElement } from "@/components/elements/display/TextElement";
 import { VideoElement } from "@/components/elements/display/VideoElement";
@@ -27,6 +29,9 @@ interface ElementRendererProps {
   hackathonId: string;
   groupId: string | null;
   userId: string | null;
+  groupMembers?: string[];
+  groupName?: string;
+  hackathonName?: string;
   onValueSaved: (value: GroupValue) => void;
 }
 
@@ -98,12 +103,22 @@ function asRecordArray(value: unknown): Array<Record<string, unknown>> {
   );
 }
 
+function asTextAlign(value: unknown): "left" | "center" | "right" {
+  if (value === "left" || value === "center" || value === "right") {
+    return value;
+  }
+  return "right";
+}
+
 export function ElementRenderer({
   element,
   groupValue,
   hackathonId,
   groupId,
   userId,
+  groupMembers = [],
+  groupName = "",
+  hackathonName = "",
   onValueSaved,
 }: ElementRendererProps) {
   const supabase = useMemo(() => createClient(), []);
@@ -144,12 +159,30 @@ export function ElementRenderer({
         element.config.level === "h3"
           ? element.config.level
           : "h2";
-      return <HeadingElement text={text} level={level} />;
+      const textAlign = asTextAlign(element.config.textAlign);
+      const separatorStyle =
+        element.config.separatorStyle === "dashed" ||
+        element.config.separatorStyle === "dotted"
+          ? element.config.separatorStyle
+          : "solid";
+      return (
+        <HeadingElement
+          text={text}
+          level={level}
+          textAlign={textAlign}
+          subHeading={asString(element.config.subHeading)}
+          showSeparator={Boolean(element.config.showSeparator)}
+          separatorStyle={separatorStyle}
+          separatorColor={asString(element.config.separatorColor)}
+          subHeadingColor={asString(element.config.subHeadingColor)}
+        />
+      );
     }
 
     case "text": {
       const content = asString(element.config.content);
-      return <TextElement content={content} />;
+      const textAlign = asTextAlign(element.config.textAlign);
+      return <TextElement content={content} textAlign={textAlign} />;
     }
 
     case "image": {
@@ -188,6 +221,21 @@ export function ElementRenderer({
       return <ListElement items={items} style={style} />;
     }
 
+    case "info-card": {
+      return (
+        <InfoCardElement
+          cardTitle={asString(element.config.cardTitle)}
+          cardText={asString(element.config.cardText)}
+          titleBgColor={asString(element.config.titleBgColor)}
+          titleTextColor={asString(element.config.titleTextColor)}
+          cardBorderColor={asString(element.config.cardBorderColor)}
+          cardShadowColor={asString(element.config.cardShadowColor)}
+          titleAlignment={asTextAlign(element.config.titleAlignment)}
+          emojiIcon={asString(element.config.emojiIcon)}
+        />
+      );
+    }
+
     case "icon_card": {
       return (
         <IconCardElement
@@ -198,15 +246,20 @@ export function ElementRenderer({
       );
     }
 
+    case "link_button": {
+      return (
+        <LinkButtonElement
+          label={asString(element.config.label)}
+          url={asString(element.config.url)}
+        />
+      );
+    }
+
     case "short_text": {
       const placeholder = asString(element.config.placeholder);
       const value = asString(groupValue?.value);
       return (
-        <ShortTextElement
-          placeholder={placeholder}
-          value={value}
-          onSave={saveInputValue}
-        />
+        <ShortTextElement placeholder={placeholder} value={value} onSave={saveInputValue} />
       );
     }
 
@@ -214,11 +267,7 @@ export function ElementRenderer({
       const placeholder = asString(element.config.placeholder);
       const value = asString(groupValue?.value);
       return (
-        <LongTextElement
-          placeholder={placeholder}
-          value={value}
-          onSave={saveInputValue}
-        />
+        <LongTextElement placeholder={placeholder} value={value} onSave={saveInputValue} />
       );
     }
 
@@ -277,6 +326,10 @@ export function ElementRenderer({
             sources: asStringArray(value.sources),
             summary: asString(value.summary),
           }}
+          printElementId={`print-view-${element.id}`}
+          hackathonName={hackathonName}
+          groupName={groupName}
+          groupMembers={groupMembers}
           onSave={saveInputValue}
         />
       );
@@ -297,6 +350,8 @@ export function ElementRenderer({
             objections: asString(value.objections),
             action_plan: asString(value.action_plan),
           }}
+          groupMembers={groupMembers}
+          printElementId={`print-view-${element.id}`}
           onSave={saveInputValue}
         />
       );
@@ -313,6 +368,7 @@ export function ElementRenderer({
             ask: asString(value.ask),
             closing: asString(value.closing),
           }}
+          printElementId={`print-view-${element.id}`}
           onSave={saveInputValue}
         />
       );

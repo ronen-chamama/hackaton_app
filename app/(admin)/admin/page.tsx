@@ -9,7 +9,6 @@ import {
   duplicateHackathon,
   toggleActive,
   togglePublish,
-  updateMetadata,
 } from "@/lib/actions/hackathon";
 
 export const dynamic = "force-dynamic";
@@ -91,6 +90,7 @@ export default async function AdminHackathonsPage() {
             const duplicateAction = duplicateHackathon.bind(null, hackathon.id);
             const publishAction = togglePublish.bind(null, hackathon.id);
             const activeAction = toggleActive.bind(null, hackathon.id);
+            const editHref = `/admin/builder/${encodeURIComponent(hackathon.id)}`;
 
             return (
               <article
@@ -126,7 +126,7 @@ export default async function AdminHackathonsPage() {
                   <p className="mb-2 text-xs font-semibold text-foreground/70">{t("actions")}</p>
                   <div className="flex flex-wrap gap-2">
                     <Link
-                      href={`/admin/builder/${hackathon.id}`}
+                      href={editHref}
                       className="inline-flex items-center gap-1 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-surface"
                     >
                       <Edit3 className="h-3.5 w-3.5" />
@@ -186,22 +186,6 @@ export default async function AdminHackathonsPage() {
                     </form>
                   </div>
                 </div>
-
-                <form action={updateMetadata} className="mt-4 flex gap-2">
-                  <input type="hidden" name="id" value={hackathon.id} />
-                  <input
-                    type="text"
-                    name="title"
-                    defaultValue={hackathon.title ?? ""}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium hover:bg-surface"
-                  >
-                    {t("editMetadata")}
-                  </button>
-                </form>
               </article>
             );
           })}

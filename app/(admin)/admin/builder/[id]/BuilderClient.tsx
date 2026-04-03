@@ -10,39 +10,50 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { BuilderCanvas } from "@/components/builder/BuilderCanvas";
 import { BuilderSidebar } from "@/components/builder/BuilderSidebar";
-import { saveAsTemplate } from "@/lib/actions/hackathon";
+import { saveAsTemplate, updateHackathonSettings } from "@/lib/actions/hackathon";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import { THEME_NAMES, type ThemeName } from "@/lib/themes";
 import type {
+  Column,
   Container,
   Element,
   ElementType,
   HackathonDefinition,
+  LayoutSettings,
+  Row,
   Stage,
 } from "@/lib/types";
 
 interface BuilderClientProps {
   hackathonId: string;
   initialDefinition: HackathonDefinition;
-  fallbackTitle: string;
+  initialTitle: string;
+  initialDescription: string;
 }
 
-type SaveState = "saved" | "saving";
 type SelectedElementRef = {
   stageId: string;
   containerId: string;
+  rowId: string;
   columnId: string;
   elementId: string;
 };
 
+type SelectedLayoutNodeRef =
+  | { kind: "stage"; stageId: string }
+  | { kind: "container"; stageId: string; containerId: string }
+  | { kind: "row"; stageId: string; containerId: string; rowId: string }
+  | { kind: "column"; stageId: string; containerId: string; rowId: string; columnId: string };
+
 type ColumnLocation = {
   stageId: string;
   containerId: string;
+  rowId: string;
   columnId: string;
 };
 
@@ -50,15 +61,42 @@ type ElementLocation = ColumnLocation & {
   elementId: string;
 };
 
+type ContainerLocation = {
+  stageId: string;
+  containerId: string;
+};
+
+type RowLocation = {
+  stageId: string;
+  containerId: string;
+  rowId: string;
+};
+
 type DragData =
   | { kind: "palette"; type: ElementType }
+  | { kind: "stage"; stageId: string }
+  | { kind: "container"; location: ContainerLocation }
+  | { kind: "container-drop"; stageId: string }
+  | { kind: "row"; location: RowLocation }
+  | { kind: "row-drop"; location: { stageId: string; containerId: string } }
   | { kind: "column"; location: ColumnLocation }
+  | { kind: "column-drop"; location: { stageId: string; containerId: string; rowId: string } }
   | { kind: "element"; location: ElementLocation; type: ElementType };
 
 type ActiveDrag =
   | null
   | { kind: "palette"; type: ElementType }
-  | { kind: "element"; type: ElementType };
+  | { kind: "element"; type: ElementType }
+  | { kind: "stage" }
+  | { kind: "container" }
+  | { kind: "row" }
+  | { kind: "column" };
+
+interface HistoryState {
+  past: HackathonDefinition[];
+  present: HackathonDefinition;
+  future: HackathonDefinition[];
+}
 
 const SAVE_DEBOUNCE_MS = 1000;
 const PALETTE_TYPES: ElementType[] = [
@@ -69,7 +107,9 @@ const PALETTE_TYPES: ElementType[] = [
   "hero",
   "alert",
   "list",
+  "info-card",
   "icon_card",
+  "link_button",
   "short_text",
   "long_text",
   "repeater_list",
@@ -85,37 +125,112 @@ function createId(prefix: string): string {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
-function findColumn(definition: HackathonDefinition, location: ColumnLocation) {
-  const stage = definition.stages.find((item) => item.id === location.stageId);
-  if (!stage) {
-    return null;
-  }
-  const container = stage.containers.find(
-    (item) => item.id === location.containerId
-  );
-  if (!container) {
-    return null;
-  }
-  const column = container.columns.find((item) => item.id === location.columnId);
-  if (!column) {
-    return null;
-  }
-  return { stage, container, column };
+function withBlockDesignDefaults(config: Record<string, unknown>) {
+  return {
+    ...config,
+    tagPosition: "top-right",
+    tagSize: "small",
+    emojiIcon: "",
+    borderWidth: 1,
+    borderColor: "",
+  };
 }
 
-function resolveDropTarget(
+type DuplicableNode = Container | Row | Column;
+
+function duplicateElementNode(element: Element): Element {
+  const nextElement = structuredClone(element) as Element;
+  nextElement.id = createId("element");
+  return nextElement;
+}
+
+function duplicateNode(node: Column): Column;
+function duplicateNode(node: Row): Row;
+function duplicateNode(node: Container): Container;
+function duplicateNode(node: DuplicableNode): DuplicableNode {
+  if ("rows" in node) {
+    const nextContainer = structuredClone(node) as Container;
+    nextContainer.id = createId("container");
+    nextContainer.rows = nextContainer.rows.map((row) => duplicateNode(row));
+    return nextContainer;
+  }
+
+  if ("columns" in node) {
+    const nextRow = structuredClone(node) as Row;
+    nextRow.id = createId("row");
+    nextRow.columns = nextRow.columns.map((column) => duplicateNode(column));
+    return nextRow;
+  }
+
+  const nextColumn = structuredClone(node) as Column;
+  nextColumn.id = createId("column");
+  nextColumn.elements = nextColumn.elements.map((element) => duplicateElementNode(element));
+  return nextColumn;
+}
+
+function findStage(definition: HackathonDefinition, stageId: string) {
+  return definition.stages.find((stage) => stage.id === stageId) ?? null;
+}
+
+function findContainer(definition: HackathonDefinition, location: ContainerLocation) {
+  const stage = findStage(definition, location.stageId);
+  if (!stage) return null;
+  const container = stage.containers.find((item) => item.id === location.containerId);
+  if (!container) return null;
+  return { stage, container };
+}
+
+function findRow(definition: HackathonDefinition, location: RowLocation) {
+  const foundContainer = findContainer(definition, {
+    stageId: location.stageId,
+    containerId: location.containerId,
+  });
+  if (!foundContainer) return null;
+  const row = foundContainer.container.rows.find((item) => item.id === location.rowId);
+  if (!row) return null;
+  return { ...foundContainer, row };
+}
+
+function findColumn(definition: HackathonDefinition, location: ColumnLocation) {
+  const foundRow = findRow(definition, {
+    stageId: location.stageId,
+    containerId: location.containerId,
+    rowId: location.rowId,
+  });
+  if (!foundRow) return null;
+  const column = foundRow.row.columns.find((item) => item.id === location.columnId);
+  if (!column) return null;
+  return { ...foundRow, column };
+}
+
+function resolveElementDropTarget(
   definition: HackathonDefinition,
   overData: DragData | undefined
 ): (ColumnLocation & { index: number }) | null {
-  if (!overData) {
-    return null;
+  if (!overData) return null;
+
+  if (overData.kind === "column-drop") {
+    const found = findRow(definition, {
+      stageId: overData.location.stageId,
+      containerId: overData.location.containerId,
+      rowId: overData.location.rowId,
+    });
+    if (!found || found.row.columns.length === 0) {
+      return null;
+    }
+    const targetColumn = found.row.columns[0];
+    return {
+      stageId: overData.location.stageId,
+      containerId: overData.location.containerId,
+      rowId: overData.location.rowId,
+      columnId: targetColumn.id,
+      index: targetColumn.elements.length,
+    };
   }
 
   if (overData.kind === "column") {
     const found = findColumn(definition, overData.location);
-    if (!found) {
-      return null;
-    }
+    if (!found) return null;
     return {
       ...overData.location,
       index: found.column.elements.length,
@@ -124,16 +239,18 @@ function resolveDropTarget(
 
   if (overData.kind === "element") {
     const found = findColumn(definition, overData.location);
-    if (!found) {
-      return null;
-    }
+    if (!found) return null;
     const index = found.column.elements.findIndex(
       (item) => item.id === overData.location.elementId
     );
-    if (index < 0) {
-      return null;
-    }
-    return { ...overData.location, index };
+    if (index < 0) return null;
+    return {
+      stageId: overData.location.stageId,
+      containerId: overData.location.containerId,
+      rowId: overData.location.rowId,
+      columnId: overData.location.columnId,
+      index,
+    };
   }
 
   return null;
@@ -142,7 +259,8 @@ function resolveDropTarget(
 export default function BuilderClient({
   hackathonId,
   initialDefinition,
-  fallbackTitle,
+  initialTitle,
+  initialDescription,
 }: BuilderClientProps) {
   const supabase = useMemo(() => createClient(), []);
   const sensors = useSensors(
@@ -150,23 +268,29 @@ export default function BuilderClient({
       activationConstraint: { distance: 5 },
     })
   );
-  const [draft, setDraft] = useState<HackathonDefinition>(initialDefinition);
-  const [saveState, setSaveState] = useState<SaveState>("saved");
-  const [selectedElement, setSelectedElement] = useState<SelectedElementRef | null>(
-    null
-  );
+
+  const [history, setHistory] = useState<HistoryState>({
+    past: [],
+    present: structuredClone(initialDefinition),
+    future: [],
+  });
+  const [selectedElement, setSelectedElement] = useState<SelectedElementRef | null>(null);
+  const [selectedLayoutNode, setSelectedLayoutNode] =
+    useState<SelectedLayoutNodeRef | null>(null);
   const [activeDrag, setActiveDrag] = useState<ActiveDrag>(null);
   const [isSavingTemplate, startSavingTemplate] = useTransition();
+  const [isUpdatingHackathonSettings, startUpdatingHackathonSettings] = useTransition();
+  const [hackathonTitle, setHackathonTitle] = useState(initialTitle);
+  const [hackathonDescription, setHackathonDescription] = useState(initialDescription);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const isFirstRenderRef = useRef(true);
+  const draft = history.present;
 
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
-      }
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
   }, []);
 
@@ -176,34 +300,101 @@ export default function BuilderClient({
       return;
     }
 
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
-      const { error } = await supabase
-        .from("hackathons")
-        .update({ definition: draft })
-        .eq("id", hackathonId);
-
-      if (!error && isMountedRef.current) {
-        setSaveState("saved");
-      }
+      await supabase.from("hackathons").update({ definition: draft }).eq("id", hackathonId);
     }, SAVE_DEBOUNCE_MS);
   }, [draft, hackathonId, supabase]);
 
   const updateDraft = (
-    updater: (previous: HackathonDefinition) => HackathonDefinition
+    updater: (previous: HackathonDefinition) => HackathonDefinition,
+    options?: { recordHistory?: boolean }
   ) => {
-    setSaveState("saving");
-    setDraft((previous) => updater(previous));
+    const recordHistory = options?.recordHistory ?? true;
+    setHistory((previous) => {
+      const nextPresent = updater(previous.present);
+      if (nextPresent === previous.present) {
+        return previous;
+      }
+
+      if (!recordHistory) {
+        return {
+          ...previous,
+          present: nextPresent,
+        };
+      }
+
+      return {
+        past: [...previous.past, structuredClone(previous.present)],
+        present: nextPresent,
+        future: [],
+      };
+    });
   };
+
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
+
+  const handleUndo = useCallback(() => {
+    setHistory((previous) => {
+      if (previous.past.length === 0) {
+        return previous;
+      }
+      const nextPast = previous.past.slice(0, -1);
+      const nextPresent = structuredClone(previous.past[previous.past.length - 1]);
+      return {
+        past: nextPast,
+        present: nextPresent,
+        future: [structuredClone(previous.present), ...previous.future],
+      };
+    });
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    setHistory((previous) => {
+      if (previous.future.length === 0) {
+        return previous;
+      }
+      const [nextPresentRaw, ...nextFuture] = previous.future;
+      return {
+        past: [...previous.past, structuredClone(previous.present)],
+        present: structuredClone(nextPresentRaw),
+        future: nextFuture,
+      };
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const isModifier = event.ctrlKey || event.metaKey;
+      if (!isModifier) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        handleUndo();
+        return;
+      }
+      if (key === "y" || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [handleRedo, handleUndo]);
 
   const addStage = () => {
     const stage: Stage = {
       id: createId("stage"),
       title: "",
       containers: [],
+      settings: {},
     };
     updateDraft((prev) => ({ ...prev, stages: [...prev.stages, stage] }));
   };
@@ -213,26 +404,25 @@ export default function BuilderClient({
       ...prev,
       stages: prev.stages.filter((stage) => stage.id !== stageId),
     }));
-    if (selectedElement?.stageId === stageId) {
-      setSelectedElement(null);
+    if (selectedElement?.stageId === stageId) setSelectedElement(null);
+    if (selectedLayoutNode?.kind === "stage" && selectedLayoutNode.stageId === stageId) {
+      setSelectedLayoutNode(null);
     }
   };
 
   const updateStageTitle = (stageId: string, title: string) => {
     updateDraft((prev) => ({
       ...prev,
-      stages: prev.stages.map((stage) =>
-        stage.id === stageId ? { ...stage, title } : stage
-      ),
+      stages: prev.stages.map((stage) => (stage.id === stageId ? { ...stage, title } : stage)),
     }));
   };
 
   const addContainer = (stageId: string) => {
     const container: Container = {
       id: createId("container"),
-      columns: [],
+      rows: [],
+      settings: {},
     };
-
     updateDraft((prev) => ({
       ...prev,
       stages: prev.stages.map((stage) =>
@@ -250,9 +440,7 @@ export default function BuilderClient({
         stage.id === stageId
           ? {
               ...stage,
-              containers: stage.containers.filter(
-                (container) => container.id !== containerId
-              ),
+              containers: stage.containers.filter((container) => container.id !== containerId),
             }
           : stage
       ),
@@ -263,9 +451,56 @@ export default function BuilderClient({
     ) {
       setSelectedElement(null);
     }
+    if (
+      selectedLayoutNode?.kind === "container" &&
+      selectedLayoutNode.stageId === stageId &&
+      selectedLayoutNode.containerId === containerId
+    ) {
+      setSelectedLayoutNode(null);
+    }
+    if (
+      selectedLayoutNode?.kind === "row" &&
+      selectedLayoutNode.stageId === stageId &&
+      selectedLayoutNode.containerId === containerId
+    ) {
+      setSelectedLayoutNode(null);
+    }
+    if (
+      selectedLayoutNode?.kind === "column" &&
+      selectedLayoutNode.stageId === stageId &&
+      selectedLayoutNode.containerId === containerId
+    ) {
+      setSelectedLayoutNode(null);
+    }
   };
 
-  const addColumn = (stageId: string, containerId: string) => {
+  const duplicateContainer = (stageId: string, containerId: string) => {
+    updateDraft((prev) => ({
+      ...prev,
+      stages: prev.stages.map((stage) => {
+        if (stage.id !== stageId) {
+          return stage;
+        }
+
+        const containerIndex = stage.containers.findIndex((container) => container.id === containerId);
+        if (containerIndex < 0) {
+          return stage;
+        }
+
+        const duplicatedContainer = duplicateNode(stage.containers[containerIndex]) as Container;
+        const nextContainers = [...stage.containers];
+        nextContainers.splice(containerIndex + 1, 0, duplicatedContainer);
+        return { ...stage, containers: nextContainers };
+      }),
+    }));
+  };
+
+  const addRow = (stageId: string, containerId: string) => {
+    const row: Row = {
+      id: createId("row"),
+      columns: [],
+      settings: {},
+    };
     updateDraft((prev) => ({
       ...prev,
       stages: prev.stages.map((stage) =>
@@ -276,10 +511,7 @@ export default function BuilderClient({
                 container.id === containerId
                   ? {
                       ...container,
-                      columns: [
-                        ...container.columns,
-                        { id: createId("column"), elements: [] },
-                      ],
+                      rows: [...container.rows, row],
                     }
                   : container
               ),
@@ -289,11 +521,7 @@ export default function BuilderClient({
     }));
   };
 
-  const deleteColumn = (
-    stageId: string,
-    containerId: string,
-    columnId: string
-  ) => {
+  const deleteRow = (stageId: string, containerId: string, rowId: string) => {
     updateDraft((prev) => ({
       ...prev,
       stages: prev.stages.map((stage) =>
@@ -304,8 +532,110 @@ export default function BuilderClient({
                 container.id === containerId
                   ? {
                       ...container,
-                      columns: container.columns.filter(
-                        (column) => column.id !== columnId
+                      rows: container.rows.filter((row) => row.id !== rowId),
+                    }
+                  : container
+              ),
+            }
+          : stage
+      ),
+    }));
+    if (
+      selectedElement?.stageId === stageId &&
+      selectedElement?.containerId === containerId &&
+      selectedElement?.rowId === rowId
+    ) {
+      setSelectedElement(null);
+    }
+    if (
+      selectedLayoutNode?.kind === "row" &&
+      selectedLayoutNode.stageId === stageId &&
+      selectedLayoutNode.containerId === containerId &&
+      selectedLayoutNode.rowId === rowId
+    ) {
+      setSelectedLayoutNode(null);
+    }
+  };
+
+  const duplicateRow = (stageId: string, containerId: string, rowId: string) => {
+    updateDraft((prev) => ({
+      ...prev,
+      stages: prev.stages.map((stage) => {
+        if (stage.id !== stageId) {
+          return stage;
+        }
+
+        return {
+          ...stage,
+          containers: stage.containers.map((container) => {
+            if (container.id !== containerId) {
+              return container;
+            }
+
+            const rowIndex = container.rows.findIndex((row) => row.id === rowId);
+            if (rowIndex < 0) {
+              return container;
+            }
+
+            const duplicatedRow = duplicateNode(container.rows[rowIndex]) as Row;
+            const nextRows = [...container.rows];
+            nextRows.splice(rowIndex + 1, 0, duplicatedRow);
+            return { ...container, rows: nextRows };
+          }),
+        };
+      }),
+    }));
+  };
+
+  const addColumn = (stageId: string, containerId: string, rowId: string) => {
+    updateDraft((prev) => ({
+      ...prev,
+      stages: prev.stages.map((stage) =>
+        stage.id === stageId
+          ? {
+              ...stage,
+              containers: stage.containers.map((container) =>
+                container.id === containerId
+                  ? {
+                      ...container,
+                      rows: container.rows.map((row) =>
+                        row.id === rowId
+                          ? {
+                              ...row,
+                              columns: [
+                                ...row.columns,
+                                { id: createId("column"), elements: [], settings: {} },
+                              ],
+                            }
+                          : row
+                      ),
+                    }
+                  : container
+              ),
+            }
+          : stage
+      ),
+    }));
+  };
+
+  const deleteColumn = (stageId: string, containerId: string, rowId: string, columnId: string) => {
+    updateDraft((prev) => ({
+      ...prev,
+      stages: prev.stages.map((stage) =>
+        stage.id === stageId
+          ? {
+              ...stage,
+              containers: stage.containers.map((container) =>
+                container.id === containerId
+                  ? {
+                      ...container,
+                      rows: container.rows.map((row) =>
+                        row.id === rowId
+                          ? {
+                              ...row,
+                              columns: row.columns.filter((column) => column.id !== columnId),
+                            }
+                          : row
                       ),
                     }
                   : container
@@ -317,62 +647,126 @@ export default function BuilderClient({
     if (
       selectedElement?.stageId === stageId &&
       selectedElement?.containerId === containerId &&
+      selectedElement?.rowId === rowId &&
       selectedElement?.columnId === columnId
     ) {
       setSelectedElement(null);
     }
+    if (
+      selectedLayoutNode?.kind === "column" &&
+      selectedLayoutNode.stageId === stageId &&
+      selectedLayoutNode.containerId === containerId &&
+      selectedLayoutNode.rowId === rowId &&
+      selectedLayoutNode.columnId === columnId
+    ) {
+      setSelectedLayoutNode(null);
+    }
+  };
+
+  const duplicateColumn = (stageId: string, containerId: string, rowId: string, columnId: string) => {
+    updateDraft((prev) => ({
+      ...prev,
+      stages: prev.stages.map((stage) => {
+        if (stage.id !== stageId) {
+          return stage;
+        }
+
+        return {
+          ...stage,
+          containers: stage.containers.map((container) => {
+            if (container.id !== containerId) {
+              return container;
+            }
+
+            return {
+              ...container,
+              rows: container.rows.map((row) => {
+                if (row.id !== rowId) {
+                  return row;
+                }
+
+                const columnIndex = row.columns.findIndex((column) => column.id === columnId);
+                if (columnIndex < 0) {
+                  return row;
+                }
+
+                const duplicatedColumn = duplicateNode(row.columns[columnIndex]) as Column;
+                const nextColumns = [...row.columns];
+                nextColumns.splice(columnIndex + 1, 0, duplicatedColumn);
+                return { ...row, columns: nextColumns };
+              }),
+            };
+          }),
+        };
+      }),
+    }));
   };
 
   function getDefaultElementConfig(type: ElementType): Record<string, unknown> {
     switch (type) {
       case "heading":
-        return { text: "", level: "h2" };
-      case "text":
-        return { content: "" };
-      case "image":
-        return { url: "", alt: "" };
-      case "video":
-        return { youtubeId: "" };
-      case "hero":
-        return { title: "", subtitle: "", align: "right" };
-      case "alert":
-        return { type: "info", text: "" };
-      case "list":
-        return { items: [], style: "bullets" };
-      case "icon_card":
         return {
-          iconName: "Star",
-          title: "",
           text: "",
+          level: "h2",
+          textAlign: "right",
+          subHeading: "",
+          showSeparator: false,
+          separatorStyle: "solid",
+          separatorColor: "",
+          subHeadingColor: "",
         };
+      case "text":
+        return { content: "", textAlign: "right" };
+      case "image":
+        return withBlockDesignDefaults({ url: "", alt: "" });
+      case "video":
+        return withBlockDesignDefaults({ youtubeId: "" });
+      case "hero":
+        return withBlockDesignDefaults({ title: "", subtitle: "", align: "right" });
+      case "alert":
+        return withBlockDesignDefaults({ type: "info", text: "" });
+      case "list":
+        return withBlockDesignDefaults({ items: [], style: "bullets" });
+      case "info-card":
+        return withBlockDesignDefaults({
+          cardTitle: "",
+          cardText: "",
+          titleBgColor: "#f4ede1",
+          titleTextColor: "#111827",
+          titleAlignment: "right",
+          cardBorderColor: "",
+          cardShadowColor: "",
+          emojiIcon: "",
+        });
+      case "icon_card":
+        return withBlockDesignDefaults({ iconName: "Star", title: "", text: "" });
+      case "link_button":
+        return withBlockDesignDefaults({ label: "", url: "", align: "right" });
       case "short_text":
       case "long_text":
-        return { placeholder: "" };
+        return withBlockDesignDefaults({ placeholder: "" });
       case "repeater_list":
-        return { placeholder: "", addButtonText: "" };
+        return withBlockDesignDefaults({ placeholder: "", addButtonText: "" });
       case "advanced_repeater":
-        return {
+        return withBlockDesignDefaults({
           fields: [{ id: createId("field").slice(-8), placeholder: "" }],
           addButtonText: "",
-        };
+        });
       case "card_builder":
-        return {
+        return withBlockDesignDefaults({
           layout: "vertical",
           gridColumns: 2,
           addButtonText: "",
           titlePlaceholder: "",
           descPlaceholder: "",
           inputPlaceholder: "",
-        };
+        });
       case "options_builder":
-        return {
-          addButtonText: "",
-          optionTitlePrefix: "",
-        };
+        return withBlockDesignDefaults({ addButtonText: "", optionTitlePrefix: "" });
       case "research_block":
-        return { title: "", findings: [], sources: [], summary: "" };
+        return withBlockDesignDefaults({ title: "", findings: [], sources: [], summary: "" });
       case "position_paper":
-        return {
+        return withBlockDesignDefaults({
           subject: "",
           recipient: "",
           background: "",
@@ -382,9 +776,15 @@ export default function BuilderClient({
           advantages: "",
           objections: "",
           action_plan: "",
-        };
+        });
       case "pitch":
-        return { hook: "", story: "", message: "", ask: "", closing: "" };
+        return withBlockDesignDefaults({
+          hook: "",
+          story: "",
+          message: "",
+          ask: "",
+          closing: "",
+        });
       default:
         return {};
     }
@@ -393,6 +793,7 @@ export default function BuilderClient({
   const insertElement = (
     stageId: string,
     containerId: string,
+    rowId: string,
     columnId: string,
     type: ElementType,
     index?: number
@@ -405,10 +806,8 @@ export default function BuilderClient({
 
     updateDraft((prev) => {
       const next = structuredClone(prev) as HackathonDefinition;
-      const found = findColumn(next, { stageId, containerId, columnId });
-      if (!found) {
-        return prev;
-      }
+      const found = findColumn(next, { stageId, containerId, rowId, columnId });
+      if (!found) return prev;
       const insertIndex = Math.max(
         0,
         Math.min(index ?? found.column.elements.length, found.column.elements.length)
@@ -423,24 +822,22 @@ export default function BuilderClient({
   const deleteElement = (
     stageId: string,
     containerId: string,
+    rowId: string,
     columnId: string,
     elementId: string
   ) => {
     updateDraft((prev) => {
       const next = structuredClone(prev) as HackathonDefinition;
-      const found = findColumn(next, { stageId, containerId, columnId });
-      if (!found) {
-        return prev;
-      }
-      found.column.elements = found.column.elements.filter(
-        (element) => element.id !== elementId
-      );
+      const found = findColumn(next, { stageId, containerId, rowId, columnId });
+      if (!found) return prev;
+      found.column.elements = found.column.elements.filter((element) => element.id !== elementId);
       return next;
     });
 
     if (
       selectedElement?.stageId === stageId &&
       selectedElement?.containerId === containerId &&
+      selectedElement?.rowId === rowId &&
       selectedElement?.columnId === columnId &&
       selectedElement?.elementId === elementId
     ) {
@@ -451,6 +848,7 @@ export default function BuilderClient({
   const updateElementConfig = (
     stageId: string,
     containerId: string,
+    rowId: string,
     columnId: string,
     elementId: string,
     configPatch: Record<string, unknown>
@@ -465,23 +863,24 @@ export default function BuilderClient({
                 container.id === containerId
                   ? {
                       ...container,
-                      columns: container.columns.map((column) =>
-                        column.id === columnId
+                      rows: container.rows.map((row) =>
+                        row.id === rowId
                           ? {
-                              ...column,
-                              elements: column.elements.map((element) =>
-                                element.id === elementId
+                              ...row,
+                              columns: row.columns.map((column) =>
+                                column.id === columnId
                                   ? {
-                                      ...element,
-                                      config: {
-                                        ...element.config,
-                                        ...configPatch,
-                                      },
+                                      ...column,
+                                      elements: column.elements.map((element) =>
+                                        element.id === elementId
+                                          ? { ...element, config: { ...element.config, ...configPatch } }
+                                          : element
+                                      ),
                                     }
-                                  : element
+                                  : column
                               ),
                             }
-                          : column
+                          : row
                       ),
                     }
                   : container
@@ -495,6 +894,7 @@ export default function BuilderClient({
   const updateElementGlobal = (
     stageId: string,
     containerId: string,
+    rowId: string,
     columnId: string,
     elementId: string,
     globalProps: Record<string, unknown>
@@ -509,21 +909,24 @@ export default function BuilderClient({
                 container.id === containerId
                   ? {
                       ...container,
-                      columns: container.columns.map((column) =>
-                        column.id === columnId
+                      rows: container.rows.map((row) =>
+                        row.id === rowId
                           ? {
-                              ...column,
-                              elements: column.elements.map((element) => {
-                                if (element.id !== elementId) {
-                                  return element;
-                                }
-                                return {
-                                  ...(element as Record<string, unknown>),
-                                  ...globalProps,
-                                } as Element;
-                              }),
+                              ...row,
+                              columns: row.columns.map((column) =>
+                                column.id === columnId
+                                  ? {
+                                      ...column,
+                                      elements: column.elements.map((element) =>
+                                        element.id === elementId
+                                          ? ({ ...(element as Record<string, unknown>), ...globalProps } as Element)
+                                          : element
+                                      ),
+                                    }
+                                  : column
+                              ),
                             }
-                          : column
+                          : row
                       ),
                     }
                   : container
@@ -534,22 +937,92 @@ export default function BuilderClient({
     }));
   };
 
+  const updateLayoutSettings = (
+    selection: {
+      kind: "stage" | "container" | "row" | "column";
+      stageId: string;
+      containerId?: string;
+      rowId?: string;
+      columnId?: string;
+    },
+    patch: Record<string, unknown>
+  ) => {
+    updateDraft((prev) => {
+      const next = structuredClone(prev) as HackathonDefinition;
+
+      if (selection.kind === "stage") {
+        const stage = next.stages.find((item) => item.id === selection.stageId);
+        if (!stage) return prev;
+        stage.settings = { ...(stage.settings ?? {}), ...patch } as LayoutSettings;
+        return next;
+      }
+
+      if (selection.kind === "container" && selection.containerId) {
+        const found = findContainer(next, { stageId: selection.stageId, containerId: selection.containerId });
+        if (!found) return prev;
+        found.container.settings = { ...(found.container.settings ?? {}), ...patch } as LayoutSettings;
+        return next;
+      }
+
+      if (selection.kind === "row" && selection.containerId && selection.rowId) {
+        const found = findRow(next, {
+          stageId: selection.stageId,
+          containerId: selection.containerId,
+          rowId: selection.rowId,
+        });
+        if (!found) return prev;
+        found.row.settings = { ...(found.row.settings ?? {}), ...patch } as LayoutSettings;
+        return next;
+      }
+
+      if (selection.kind === "column" && selection.containerId && selection.rowId && selection.columnId) {
+        const found = findColumn(next, {
+          stageId: selection.stageId,
+          containerId: selection.containerId,
+          rowId: selection.rowId,
+          columnId: selection.columnId,
+        });
+        if (!found) return prev;
+        found.column.settings = { ...(found.column.settings ?? {}), ...patch } as LayoutSettings;
+        return next;
+      }
+
+      return prev;
+    });
+  };
+
   const selectedElementData = selectedElement
     ? (() => {
         const stage = draft.stages.find((item) => item.id === selectedElement.stageId);
-        const container = stage?.containers.find(
-          (item) => item.id === selectedElement.containerId
-        );
-        const column = container?.columns.find(
-          (item) => item.id === selectedElement.columnId
-        );
-        const element = column?.elements.find(
-          (item) => item.id === selectedElement.elementId
-        );
-        if (!stage || !container || !column || !element) {
-          return null;
-        }
+        const container = stage?.containers.find((item) => item.id === selectedElement.containerId);
+        const row = container?.rows.find((item) => item.id === selectedElement.rowId);
+        const column = row?.columns.find((item) => item.id === selectedElement.columnId);
+        const element = column?.elements.find((item) => item.id === selectedElement.elementId);
+        if (!stage || !container || !row || !column || !element) return null;
         return { ...selectedElement, element };
+      })()
+    : null;
+
+  const selectedLayoutNodeData = selectedLayoutNode
+    ? (() => {
+        if (selectedLayoutNode.kind === "stage") {
+          const stage = draft.stages.find((item) => item.id === selectedLayoutNode.stageId);
+          if (!stage) return null;
+          return { ...selectedLayoutNode, settings: stage.settings ?? {} };
+        }
+        if (selectedLayoutNode.kind === "container") {
+          const found = findContainer(draft, selectedLayoutNode);
+          if (!found) return null;
+          return { ...selectedLayoutNode, settings: found.container.settings ?? {} };
+        }
+        if (selectedLayoutNode.kind === "row") {
+          const found = findRow(draft, selectedLayoutNode);
+          if (!found) return null;
+          return { ...selectedLayoutNode, settings: found.row.settings ?? {} };
+        }
+        const found = findColumn(draft, selectedLayoutNode);
+        if (!found) return null;
+        return { ...selectedLayoutNode, settings: found.column.settings ?? {} };
       })()
     : null;
 
@@ -559,99 +1032,287 @@ export default function BuilderClient({
       setActiveDrag(null);
       return;
     }
-
     if (data.kind === "palette") {
       setActiveDrag({ kind: "palette", type: data.type });
       return;
     }
-
     if (data.kind === "element") {
       setActiveDrag({ kind: "element", type: data.type });
       return;
     }
-
+    if (data.kind === "stage") {
+      setActiveDrag({ kind: "stage" });
+      return;
+    }
+    if (data.kind === "container") {
+      setActiveDrag({ kind: "container" });
+      return;
+    }
+    if (data.kind === "row") {
+      setActiveDrag({ kind: "row" });
+      return;
+    }
+    if (data.kind === "column") {
+      setActiveDrag({ kind: "column" });
+      return;
+    }
     setActiveDrag(null);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const activeData = event.active.data.current as DragData | undefined;
     const overData = event.over?.data.current as DragData | undefined;
-
     setActiveDrag(null);
+    if (!activeData || !event.over) return;
 
-    if (!activeData || !event.over) {
+    if (activeData.kind === "stage" && overData?.kind === "stage") {
+      updateDraft((prev) => {
+        const fromIndex = prev.stages.findIndex((stage) => stage.id === activeData.stageId);
+        const toIndex = prev.stages.findIndex((stage) => stage.id === overData.stageId);
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+        return { ...prev, stages: arrayMove(prev.stages, fromIndex, toIndex) };
+      });
       return;
     }
 
-    const target = resolveDropTarget(draft, overData);
-    if (!target) {
+    if (activeData.kind === "container" && overData) {
+      updateDraft((prev) => {
+        const next = structuredClone(prev) as HackathonDefinition;
+        const sourceFound = findContainer(next, activeData.location);
+        if (!sourceFound) return prev;
+
+        const sourceStage = sourceFound.stage;
+        const sourceIndex = sourceStage.containers.findIndex(
+          (item) => item.id === activeData.location.containerId
+        );
+        if (sourceIndex < 0) return prev;
+
+        const [movedContainer] = sourceStage.containers.splice(sourceIndex, 1);
+        let targetStageId: string | null = null;
+        let targetIndex = -1;
+
+        if (overData.kind === "container") {
+          targetStageId = overData.location.stageId;
+          const targetStage = findStage(next, targetStageId);
+          if (!targetStage) return prev;
+          targetIndex = targetStage.containers.findIndex(
+            (item) => item.id === overData.location.containerId
+          );
+          if (targetIndex < 0) targetIndex = targetStage.containers.length;
+          targetStage.containers.splice(targetIndex, 0, movedContainer);
+        } else if (overData.kind === "container-drop") {
+          targetStageId = overData.stageId;
+          const targetStage = findStage(next, targetStageId);
+          if (!targetStage) return prev;
+          targetStage.containers.push(movedContainer);
+        } else {
+          return prev;
+        }
+
+        if (selectedElement && selectedElement.containerId === movedContainer.id) {
+          setSelectedElement({ ...selectedElement, stageId: targetStageId ?? selectedElement.stageId });
+        }
+        if (selectedLayoutNode?.kind === "container" && selectedLayoutNode.containerId === movedContainer.id) {
+          setSelectedLayoutNode({
+            kind: "container",
+            stageId: targetStageId ?? selectedLayoutNode.stageId,
+            containerId: movedContainer.id,
+          });
+        }
+        if (selectedLayoutNode?.kind === "column" && selectedLayoutNode.containerId === movedContainer.id) {
+          setSelectedLayoutNode({
+            ...selectedLayoutNode,
+            stageId: targetStageId ?? selectedLayoutNode.stageId,
+          });
+        }
+
+        return next;
+      });
       return;
     }
+
+    if (activeData.kind === "row" && overData) {
+      updateDraft((prev) => {
+        const next = structuredClone(prev) as HackathonDefinition;
+        const sourceFound = findRow(next, activeData.location);
+        if (!sourceFound) return prev;
+
+        const sourceRows = sourceFound.container.rows;
+        const sourceIndex = sourceRows.findIndex((item) => item.id === activeData.location.rowId);
+        if (sourceIndex < 0) return prev;
+        const [movedRow] = sourceRows.splice(sourceIndex, 1);
+
+        let targetLocation: { stageId: string; containerId: string; rowId?: string } | null = null;
+        if (overData.kind === "row") {
+          targetLocation = overData.location;
+        } else if (overData.kind === "row-drop") {
+          targetLocation = overData.location;
+        } else {
+          return prev;
+        }
+
+        const targetFound = findContainer(next, {
+          stageId: targetLocation.stageId,
+          containerId: targetLocation.containerId,
+        });
+        if (!targetFound) return prev;
+
+        if (overData.kind === "row") {
+          const targetIndex = targetFound.container.rows.findIndex((item) => item.id === targetLocation.rowId);
+          targetFound.container.rows.splice(
+            targetIndex >= 0 ? targetIndex : targetFound.container.rows.length,
+            0,
+            movedRow
+          );
+        } else {
+          targetFound.container.rows.push(movedRow);
+        }
+
+        if (selectedElement && selectedElement.rowId === movedRow.id) {
+          setSelectedElement({
+            ...selectedElement,
+            stageId: targetLocation.stageId,
+            containerId: targetLocation.containerId,
+          });
+        }
+        if (selectedLayoutNode?.kind === "row" && selectedLayoutNode.rowId === movedRow.id) {
+          setSelectedLayoutNode({
+            kind: "row",
+            stageId: targetLocation.stageId,
+            containerId: targetLocation.containerId,
+            rowId: movedRow.id,
+          });
+        }
+        if (selectedLayoutNode?.kind === "column" && selectedLayoutNode.rowId === movedRow.id) {
+          setSelectedLayoutNode({
+            ...selectedLayoutNode,
+            stageId: targetLocation.stageId,
+            containerId: targetLocation.containerId,
+          });
+        }
+
+        return next;
+      });
+      return;
+    }
+
+    if (activeData.kind === "column" && overData) {
+      updateDraft((prev) => {
+        const next = structuredClone(prev) as HackathonDefinition;
+        const sourceFound = findColumn(next, activeData.location);
+        if (!sourceFound) return prev;
+
+        const sourceColumns = sourceFound.row.columns;
+        const sourceIndex = sourceColumns.findIndex((item) => item.id === activeData.location.columnId);
+        if (sourceIndex < 0) return prev;
+        const [movedColumn] = sourceColumns.splice(sourceIndex, 1);
+
+        let targetLocation: { stageId: string; containerId: string; rowId: string; columnId?: string } | null = null;
+        if (overData.kind === "column") {
+          targetLocation = overData.location;
+        } else if (overData.kind === "column-drop") {
+          targetLocation = overData.location;
+        } else {
+          return prev;
+        }
+
+        const targetFound = findRow(next, {
+          stageId: targetLocation.stageId,
+          containerId: targetLocation.containerId,
+          rowId: targetLocation.rowId,
+        });
+        if (!targetFound) return prev;
+
+        if (overData.kind === "column") {
+          const targetIndex = targetFound.row.columns.findIndex(
+            (item) => item.id === targetLocation.columnId
+          );
+          targetFound.row.columns.splice(
+            targetIndex >= 0 ? targetIndex : targetFound.row.columns.length,
+            0,
+            movedColumn
+          );
+        } else {
+          targetFound.row.columns.push(movedColumn);
+        }
+
+        if (selectedElement && selectedElement.columnId === movedColumn.id) {
+          setSelectedElement({
+            ...selectedElement,
+            stageId: targetLocation.stageId,
+            containerId: targetLocation.containerId,
+            rowId: targetLocation.rowId,
+          });
+        }
+        if (selectedLayoutNode?.kind === "column" && selectedLayoutNode.columnId === movedColumn.id) {
+          setSelectedLayoutNode({
+            kind: "column",
+            stageId: targetLocation.stageId,
+            containerId: targetLocation.containerId,
+            rowId: targetLocation.rowId,
+            columnId: movedColumn.id,
+          });
+        }
+
+        return next;
+      });
+      return;
+    }
+
+    const target = resolveElementDropTarget(draft, overData);
+    if (!target) return;
 
     if (activeData.kind === "palette") {
       const newElementId = insertElement(
         target.stageId,
         target.containerId,
+        target.rowId,
         target.columnId,
         activeData.type,
         target.index
       );
+      setSelectedLayoutNode(null);
       setSelectedElement({
         stageId: target.stageId,
         containerId: target.containerId,
+        rowId: target.rowId,
         columnId: target.columnId,
         elementId: newElementId,
       });
       return;
     }
 
-    if (activeData.kind !== "element") {
-      return;
-    }
+    if (activeData.kind !== "element") return;
 
     const source = activeData.location;
     updateDraft((prev) => {
       const next = structuredClone(prev) as HackathonDefinition;
       const sourceFound = findColumn(next, source);
       const targetFound = findColumn(next, target);
-      if (!sourceFound || !targetFound) {
-        return prev;
-      }
+      if (!sourceFound || !targetFound) return prev;
 
-      const fromIndex = sourceFound.column.elements.findIndex(
-        (item) => item.id === source.elementId
-      );
-      if (fromIndex < 0) {
-        return prev;
-      }
+      const fromIndex = sourceFound.column.elements.findIndex((item) => item.id === source.elementId);
+      if (fromIndex < 0) return prev;
 
       const sameColumn =
         source.stageId === target.stageId &&
         source.containerId === target.containerId &&
+        source.rowId === target.rowId &&
         source.columnId === target.columnId;
 
       if (sameColumn) {
-        const currentColumn = sourceFound.column;
-        const toIndex = Math.max(
-          0,
-          Math.min(target.index, currentColumn.elements.length - 1)
-        );
-        if (toIndex === fromIndex) {
-          return prev;
-        }
-        currentColumn.elements = arrayMove(currentColumn.elements, fromIndex, toIndex);
+        const toIndex = Math.max(0, Math.min(target.index, sourceFound.column.elements.length - 1));
+        if (toIndex === fromIndex) return prev;
+        sourceFound.column.elements = arrayMove(sourceFound.column.elements, fromIndex, toIndex);
       } else {
         const [moved] = sourceFound.column.elements.splice(fromIndex, 1);
-        const insertIndex = Math.max(
-          0,
-          Math.min(target.index, targetFound.column.elements.length)
-        );
+        const insertIndex = Math.max(0, Math.min(target.index, targetFound.column.elements.length));
         targetFound.column.elements.splice(insertIndex, 0, moved);
-
         if (selectedElement?.elementId === moved.id) {
           setSelectedElement({
             stageId: target.stageId,
             containerId: target.containerId,
+            rowId: target.rowId,
             columnId: target.columnId,
             elementId: moved.id,
           });
@@ -677,6 +1338,24 @@ export default function BuilderClient({
     });
   };
 
+  const handleUpdateHackathonSettings = async (title: string, description: string) => {
+    return new Promise<boolean>((resolve) => {
+      startUpdatingHackathonSettings(async () => {
+        const result = await updateHackathonSettings(hackathonId, title, description);
+        if (!result.ok) {
+          window.alert(result.error ?? t("errorGeneric"));
+          resolve(false);
+          return;
+        }
+
+        setHackathonTitle(title);
+        setHackathonDescription(description);
+        updateDraft((prev) => ({ ...prev, title, description }), { recordHistory: false });
+        resolve(true);
+      });
+    });
+  };
+
   return (
     <DndContext
       id="builder-dnd-context"
@@ -687,18 +1366,29 @@ export default function BuilderClient({
       <div className="flex h-screen flex-col overflow-hidden">
         <BuilderHeader
           hackathonId={hackathonId}
-          saveLabel={saveState === "saving" ? t("saving") : t("saved")}
+          title={hackathonTitle}
+          description={hackathonDescription}
           isSavingTemplate={isSavingTemplate}
+          isUpdatingHackathonSettings={isUpdatingHackathonSettings}
           onSaveAsTemplate={handleSaveAsTemplate}
+          onUpdateHackathonSettings={handleUpdateHackathonSettings}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
         />
         <div className="grid min-h-0 flex-1 grid-cols-[20rem_1fr]">
           <BuilderSidebar
-            saveLabel={saveState === "saving" ? t("saving") : t("saved")}
             onAddStage={addStage}
             selectedElement={selectedElementData}
-            onDeselect={() => setSelectedElement(null)}
+            selectedLayoutNode={selectedLayoutNodeData}
+            onDeselect={() => {
+              setSelectedElement(null);
+              setSelectedLayoutNode(null);
+            }}
             onUpdateElementConfig={updateElementConfig}
             onUpdateElementGlobal={updateElementGlobal}
+            onUpdateLayoutSettings={updateLayoutSettings}
             paletteTypes={PALETTE_TYPES}
             currentTheme={
               THEME_NAMES.includes(draft.themeName as ThemeName)
@@ -709,16 +1399,29 @@ export default function BuilderClient({
           />
           <BuilderCanvas
             definition={draft}
-            fallbackTitle={fallbackTitle}
+            hackathonTitle={hackathonTitle}
+            hackathonDescription={hackathonDescription}
             onAddStage={addStage}
             onUpdateStageTitle={updateStageTitle}
             onDeleteStage={deleteStage}
             onAddContainer={addContainer}
             onDeleteContainer={deleteContainer}
+            onDuplicateContainer={duplicateContainer}
+            onAddRow={addRow}
+            onDeleteRow={deleteRow}
+            onDuplicateRow={duplicateRow}
             onAddColumn={addColumn}
             onDeleteColumn={deleteColumn}
+            onDuplicateColumn={duplicateColumn}
             selectedElement={selectedElement}
-            onSelectElement={setSelectedElement}
+            onSelectElement={(selected) => {
+              setSelectedElement(selected);
+              setSelectedLayoutNode(null);
+            }}
+            onSelectLayoutNode={(selected) => {
+              setSelectedLayoutNode(selected);
+              setSelectedElement(null);
+            }}
             onDeleteElement={deleteElement}
           />
         </div>
@@ -726,7 +1429,9 @@ export default function BuilderClient({
       <DragOverlay>
         {activeDrag ? (
           <div className="rounded-lg border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-foreground shadow-sm">
-            {t(activeDrag.type)}
+            {activeDrag.kind === "palette" || activeDrag.kind === "element"
+              ? t(activeDrag.type)
+              : t("builder")}
           </div>
         ) : null}
       </DragOverlay>
