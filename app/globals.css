@@ -1,176 +1,64 @@
 @import "tailwindcss";
 
-/* ---------------------------------------------------------------------------
-   Base design token layer
-   All semantic tokens are CSS custom properties consumed by Tailwind v4.
-   Themes override these variables at the [data-theme] attribute level.
-   --------------------------------------------------------------------------- */
+/* ===========================================================================
+   BASE TOKENS
+   =========================================================================== */
 
 :root {
-  /* Surface */
   --background: #ffffff;
   --foreground: #0f0f0f;
   --surface: #f8f8f8;
   --surface-raised: #ffffff;
   --border: #e2e2e2;
-
-  /* Brand palette */
   --color-primary: #2563eb;
   --color-primary-foreground: #ffffff;
   --color-secondary: #7c3aed;
   --color-secondary-foreground: #ffffff;
   --color-accent: #0ea5e9;
   --color-accent-foreground: #ffffff;
-
-  /* Semantic states */
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-danger: #dc2626;
   --color-info: #0284c7;
-
-  /* Typography scale */
-  --font-size-xs: 0.75rem;
-  --font-size-sm: 0.875rem;
-  --font-size-base: 1rem;
-  --font-size-lg: 1.125rem;
-  --font-size-xl: 1.25rem;
-  --font-size-2xl: 1.5rem;
-  --font-size-3xl: 1.875rem;
-  --font-size-4xl: 2.25rem;
-
-  /* Spacing scale */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
-
-  /* Border radius */
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-full: 9999px;
-
-  /* Shadow */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --font-body: var(--font-heebo);
+  --font-heading: var(--font-heebo);
 }
 
-/* ---------------------------------------------------------------------------
-   Tailwind v4 theme registration
-   Maps CSS custom properties to Tailwind utility names.
-   --------------------------------------------------------------------------- */
-
 @theme inline {
-  /* Font family — Heebo is the RTL-capable primary font */
-  --font-sans: var(--font-heebo), system-ui, sans-serif;
-
-  /* Surface tokens */
+  --font-sans: var(--font-body), system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
   --color-border: var(--border);
-
-  /* Brand tokens */
   --color-primary: var(--color-primary);
   --color-primary-foreground: var(--color-primary-foreground);
   --color-secondary: var(--color-secondary);
   --color-secondary-foreground: var(--color-secondary-foreground);
   --color-accent: var(--color-accent);
   --color-accent-foreground: var(--color-accent-foreground);
-
-  /* State tokens */
   --color-success: var(--color-success);
   --color-warning: var(--color-warning);
   --color-danger: var(--color-danger);
   --color-info: var(--color-info);
 }
 
-/* ---------------------------------------------------------------------------
-   Theme overrides
-   Applied via data-theme attribute on <html> or a parent container.
-   Each theme overrides the root custom properties defined above.
-   --------------------------------------------------------------------------- */
-
-[data-theme="simple"] {
-  --color-primary: #374151;
-  --color-secondary: #6b7280;
-  --color-accent: #9ca3af;
-  --background: #ffffff;
-  --foreground: #111827;
-  --border: #d1d5db;
+[data-theme] h1,
+[data-theme] h2,
+[data-theme] h3,
+[data-theme] h4,
+[data-theme] h5,
+[data-theme] h6 {
+  font-family: var(--font-heading), system-ui, sans-serif;
 }
-
-[data-theme="pleasant"] {
-  --color-primary: #0d9488;
-  --color-secondary: #6366f1;
-  --color-accent: #f59e0b;
-  --background: #f0fdfa;
-  --foreground: #134e4a;
-  --border: #99f6e4;
-}
-
-[data-theme="formal"] {
-  --color-primary: #1e3a5f;
-  --color-secondary: #7c6d5a;
-  --color-accent: #b8860b;
-  --background: #fafaf8;
-  --foreground: #1a1a1a;
-  --border: #c5b9a8;
-}
-
-[data-theme="playful"] {
-  --color-primary: #ec4899;
-  --color-secondary: #f97316;
-  --color-accent: #a855f7;
-  --background: #fdf4ff;
-  --foreground: #1a0033;
-  --border: #f0abfc;
-}
-
-[data-theme="subversive"] {
-  --color-primary: #dc2626;
-  --color-secondary: #1d1d1d;
-  --color-accent: #facc15;
-  --background: #0f0f0f;
-  --foreground: #f5f5f5;
-  --border: #333333;
-}
-
-[data-theme="print"] {
-  --color-primary: #000000;
-  --color-secondary: #444444;
-  --color-accent: #000000;
-  --background: #ffffff;
-  --foreground: #000000;
-  --border: #cccccc;
-}
-
-[data-theme="tech"] {
-  --color-primary: #06b6d4;
-  --color-secondary: #8b5cf6;
-  --color-accent: #10b981;
-  --background: #0a0a1a;
-  --foreground: #e2e8f0;
-  --border: #1e293b;
-}
-
-[data-theme="social"] {
-  --color-primary: #3b82f6;
-  --color-secondary: #ef4444;
-  --color-accent: #f59e0b;
-  --background: #f1f5f9;
-  --foreground: #0f172a;
-  --border: #cbd5e1;
-}
-
-/* ---------------------------------------------------------------------------
-   Global RTL base styles
-   --------------------------------------------------------------------------- */
 
 body {
   background: var(--background);
@@ -179,10 +67,1416 @@ body {
   text-align: start;
 }
 
-/* Print-specific RTL reset */
-@media print {
-  html,
-  body {
-    direction: rtl;
-  }
+@media print { html, body { direction: rtl; } }
+
+/* ===========================================================================
+   UNIVERSAL INVISIBLE CONTAINERS / COLUMNS
+   Containers and columns are pure layout scaffolding.
+   No borders, no backgrounds, no shadows — ever.
+   Individual themes override ARTICLE and HEADER only.
+   =========================================================================== */
+
+[data-renderer="container"] {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+[data-renderer="column"] {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  /* columns still need padding for spacing */
+  padding: 0.25rem !important;
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  S I M P L E  (פשוט)             ║
+   ║  Glassmorphism SaaS — Linear/     ║
+   ║  Vercel aesthetic. Soft lavender  ║
+   ║  gradient, everything frosted.    ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="simple"] {
+  --font-body: var(--font-heebo);
+  --font-heading: var(--font-heebo);
+  font-family: var(--font-heebo), sans-serif;
+  --background: #f5f3ff;
+  --foreground: #1e1b4b;
+  --surface: #ede9fe;
+  --surface-raised: rgba(255,255,255,0.9);
+  --border: rgba(139,92,246,0.18);
+  --color-primary: #7c3aed;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #0ea5e9;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #ec4899;
+  --color-accent-foreground: #ffffff;
+}
+
+[data-theme="simple"] {
+  background: linear-gradient(145deg, #f0e9ff 0%, #e8f4ff 35%, #fce7ff 65%, #e8efff 100%);
+  min-height: 100vh;
+}
+
+/* Header: floating frosted glass card */
+[data-theme="simple"] header {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(139,92,246,0.18);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 8px 32px rgba(124,58,237,0.1),
+    0 1px 0 rgba(255,255,255,0.95) inset;
+}
+
+/* Nav: glass pill container */
+[data-theme="simple"] nav {
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(139,92,246,0.14);
+  border-radius: 9999px;
+  padding: 0.3rem;
+  box-shadow: 0 4px 16px rgba(124,58,237,0.07);
+}
+
+[data-theme="simple"] nav button {
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: #5b21b6;
+  font-weight: 500;
+  transition: all 0.18s ease;
+}
+
+[data-theme="simple"] nav button[data-active="true"] {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.38);
+  transform: translateY(-1px);
+}
+
+[data-theme="simple"] nav button:not([data-active="true"]):hover {
+  background: rgba(124,58,237,0.09);
+}
+
+/* Stage section: glass pane */
+[data-theme="simple"] section {
+  background: rgba(255,255,255,0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(139,92,246,0.1);
+  border-radius: 1.25rem;
+  box-shadow: 0 4px 24px rgba(124,58,237,0.06);
+}
+
+/* Articles: individual floating glass cards */
+[data-theme="simple"] article {
+  background: rgba(255,255,255,0.82);
+  border: 1px solid rgba(139,92,246,0.12);
+  border-radius: 1rem;
+  box-shadow: 0 2px 12px rgba(124,58,237,0.07);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+[data-theme="simple"] article:hover {
+  box-shadow: 0 6px 24px rgba(124,58,237,0.14);
+  transform: translateY(-2px);
+}
+
+[data-theme="simple"] input[type="text"],
+[data-theme="simple"] textarea {
+  border-radius: 0.875rem;
+  border: 1.5px solid rgba(139,92,246,0.22);
+  background: rgba(255,255,255,0.7);
+  transition: all 0.18s ease;
+}
+
+[data-theme="simple"] input[type="text"]:focus,
+[data-theme="simple"] textarea:focus {
+  border-color: #7c3aed;
+  background: rgba(255,255,255,0.96);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12), 0 4px 12px rgba(124,58,237,0.08);
+  outline: none;
+}
+
+[data-theme="simple"] h1, [data-theme="simple"] h2, [data-theme="simple"] h3 {
+  color: #4c1d95;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+[data-theme="simple"] footer {
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(139,92,246,0.14);
+  border-radius: 9999px;
+  box-shadow: 0 4px 16px rgba(124,58,237,0.07);
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  P L E A S A N T  (נעים)         ║
+   ║  Autumn forest walk. Warm pastels ║
+   ║  organic shapes, dashed borders,  ║
+   ║  nature energy.                   ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="pleasant"] {
+  --font-body: var(--font-varela);
+  --font-heading: var(--font-varela);
+  font-family: var(--font-varela), sans-serif;
+  --background: #fdf6e8;
+  --foreground: #3d2b1f;
+  --surface: #f5ead6;
+  --surface-raised: #fffcf5;
+  --border: #d4956a;
+  --color-primary: #b45309;
+  --color-primary-foreground: #fffcf5;
+  --color-secondary: #5a7a4e;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #c17f6e;
+  --color-accent-foreground: #ffffff;
+}
+
+[data-theme="pleasant"] {
+  background:
+    radial-gradient(ellipse at 8% 15%, rgba(210,160,80,0.14) 0%, transparent 45%),
+    radial-gradient(ellipse at 92% 80%, rgba(90,122,78,0.12) 0%, transparent 45%),
+    radial-gradient(ellipse at 55% 50%, rgba(193,127,110,0.07) 0%, transparent 60%),
+    #fdf6e8;
+  min-height: 100vh;
+}
+
+/* Header: warm card with nature decoration inside flex layout */
+[data-theme="pleasant"] header {
+  background: #fffcf5;
+  border: 2px dashed #c8956a;
+  border-radius: 1.25rem 2rem 1.25rem 2rem;
+  box-shadow: 4px 4px 0 rgba(180,83,9,0.08), 0 8px 24px rgba(180,83,9,0.06);
+  overflow: visible;
+  position: relative;
+}
+
+/* Floating leaf stickers — positioned relative to header, won't overflow */
+[data-theme="pleasant"] header::before {
+  content: "🍂  🍁  🍃";
+  position: absolute;
+  top: -0.85rem;
+  right: 1.25rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.2rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+[data-theme="pleasant"] nav {
+  background: #fffcf5;
+  border: 2px dashed #c8956a;
+  border-radius: 2rem 1rem 2rem 1rem;
+  box-shadow: 3px 3px 0 rgba(180,83,9,0.06);
+}
+
+[data-theme="pleasant"] nav button {
+  border: 1.5px dashed #c8956a;
+  border-radius: 9999px;
+  background: transparent;
+  color: #7c4a1e;
+  font-weight: 600;
+  transition: all 0.18s ease;
+}
+
+[data-theme="pleasant"] nav button[data-active="true"] {
+  background: #b45309;
+  color: #fffcf5;
+  border-style: solid;
+  border-color: #92400e;
+  box-shadow: 2px 2px 0 rgba(146,64,14,0.25);
+}
+
+[data-theme="pleasant"] nav button:not([data-active="true"]):hover {
+  background: rgba(180,83,9,0.08);
+  border-style: solid;
+}
+
+[data-theme="pleasant"] section {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* Articles: warm cards with organic shapes */
+[data-theme="pleasant"] article {
+  background: #fffcf5;
+  border: 1.5px dashed #e0b896;
+  border-radius: 0.5rem 1.5rem 0.5rem 1.5rem;
+  box-shadow: 2px 2px 0 rgba(180,83,9,0.04);
+}
+
+[data-theme="pleasant"] article:nth-child(even) {
+  border-radius: 1.5rem 0.5rem 1.5rem 0.5rem;
+}
+
+[data-theme="pleasant"] input[type="text"],
+[data-theme="pleasant"] textarea {
+  border: 1.5px dashed #c8956a;
+  border-radius: 9999px;
+  background: rgba(255,252,245,0.8);
+  color: #3d2b1f;
+}
+
+[data-theme="pleasant"] textarea { border-radius: 1rem; }
+
+[data-theme="pleasant"] input[type="text"]:focus,
+[data-theme="pleasant"] textarea:focus {
+  border-style: solid;
+  border-color: #b45309;
+  outline: none;
+  background: #fffcf5;
+  box-shadow: 0 0 0 3px rgba(180,83,9,0.1);
+}
+
+[data-theme="pleasant"] h1, [data-theme="pleasant"] h2, [data-theme="pleasant"] h3 {
+  color: #92400e;
+  font-weight: 700;
+}
+
+[data-theme="pleasant"] footer {
+  background: #fffcf5;
+  border: 2px dashed #c8956a;
+  border-radius: 9999px;
+  box-shadow: 3px 3px 0 rgba(180,83,9,0.06);
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  P L A Y F U L  (שובב)           ║
+   ║  ACTUAL COMIC BOOK.               ║
+   ║  Halftone dots bg. Cover-page     ║
+   ║  header with panels. Karantina.   ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="playful"] {
+  --font-body: var(--font-karantina);
+  --font-heading: var(--font-karantina);
+  font-family: var(--font-karantina), sans-serif;
+  --background: #fef9c3;
+  --foreground: #0d0d0d;
+  --surface: #fef08a;
+  --surface-raised: #ffffff;
+  --border: #0d0d0d;
+  --color-primary: #e53935;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #1565c0;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #f9a825;
+  --color-accent-foreground: #000000;
+}
+
+/* Halftone dots background */
+[data-theme="playful"] {
+  background-color: #fef9c3;
+  background-image: radial-gradient(circle, rgba(0,0,0,0.14) 1.5px, transparent 1.5px);
+  background-size: 10px 10px;
+  min-height: 100vh;
+}
+
+/* ── Comic cover page header ── */
+[data-theme="playful"] header {
+  background: #e53935;
+  border: 4px solid #0d0d0d;
+  border-radius: 0.25rem;
+  box-shadow: 6px 6px 0 0 #0d0d0d;
+  padding: 0 !important;
+  overflow: hidden;
+  transform: rotate(-0.3deg);
+  position: relative;
+}
+
+/* Red cover strip with "CHAMAMA" masthead feel */
+[data-theme="playful"] header > div:first-child {
+  background: #e53935;
+  padding: 1rem 1.25rem;
+}
+
+[data-theme="playful"] header h1 {
+  color: #fef9c3;
+  font-family: var(--font-karantina), sans-serif;
+  font-weight: 700;
+  font-size: 2.75rem;
+  letter-spacing: 0.04em;
+  text-shadow: 3px 3px 0 #0d0d0d;
+  line-height: 1;
+}
+
+[data-theme="playful"] header p {
+  color: #fef9c3;
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 1.1rem;
+}
+
+/* Yellow band below cover for group info — looks like a price tag / caption band */
+[data-theme="playful"] header > div:last-child {
+  background: #fef9c3;
+  border-top: 3px solid #0d0d0d;
+  padding: 0.6rem 1.25rem;
+}
+
+[data-theme="playful"] header input[type="text"] {
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 1.1rem;
+  color: #0d0d0d;
+  background: transparent;
+  border-color: #0d0d0d;
+}
+
+/* Starburst explosion — pure CSS polygon */
+[data-theme="playful"] header::before {
+  content: "★ WOW! ★";
+  position: absolute;
+  top: 0.5rem;
+  left: 0.75rem;
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #f9a825;
+  transform: rotate(-12deg);
+  background: #1565c0;
+  padding: 0.15rem 0.5rem;
+  border: 2px solid #0d0d0d;
+  box-shadow: 2px 2px 0 #0d0d0d;
+  letter-spacing: 0.05em;
+}
+
+/* Speech bubble tail on header */
+[data-theme="playful"] header::after {
+  content: "№ 1";
+  position: absolute;
+  bottom: 3.2rem;
+  left: 0.75rem;
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #f9a825;
+  border: 2px solid #0d0d0d;
+  box-shadow: 2px 2px 0 #0d0d0d;
+  padding: 0.1rem 0.4rem;
+  transform: rotate(5deg);
+}
+
+/* Nav: yellow panel strip */
+[data-theme="playful"] nav {
+  background: #f9a825;
+  border: 3px solid #0d0d0d;
+  border-radius: 0.25rem;
+  box-shadow: 5px 5px 0 0 #0d0d0d;
+  transform: rotate(0.25deg);
+}
+
+[data-theme="playful"] nav button {
+  border: 2px solid #0d0d0d;
+  border-radius: 0.2rem;
+  background: #fef9c3;
+  color: #0d0d0d;
+  font-weight: 700;
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+  transition: all 0.1s ease;
+}
+
+[data-theme="playful"] nav button[data-active="true"] {
+  background: #e53935;
+  color: #ffffff;
+  box-shadow: 3px 3px 0 0 #0d0d0d;
+  transform: translate(-1px, -1px);
+}
+
+[data-theme="playful"] nav button:not([data-active="true"]):hover {
+  background: #1565c0;
+  color: #ffffff;
+  box-shadow: 3px 3px 0 0 #0d0d0d;
+  transform: translate(-1px, -1px);
+}
+
+/* Stage: white comic page with thick border */
+[data-theme="playful"] section {
+  background: #ffffff;
+  border: 3px solid #0d0d0d;
+  border-radius: 0.25rem;
+  box-shadow: 6px 6px 0 0 #0d0d0d;
+  transform: rotate(0.15deg);
+}
+
+/* Articles: comic panels — alternating rotation for hand-drawn feel */
+[data-theme="playful"] article {
+  background: #ffffff;
+  border: 2.5px solid #0d0d0d;
+  border-radius: 0.25rem;
+  box-shadow: 3px 3px 0 0 #0d0d0d;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+[data-theme="playful"] article:nth-child(1) { transform: rotate(-1.1deg); }
+[data-theme="playful"] article:nth-child(2) { transform: rotate(0.7deg); }
+[data-theme="playful"] article:nth-child(3) { transform: rotate(-0.5deg); }
+[data-theme="playful"] article:nth-child(4) { transform: rotate(1.3deg); }
+[data-theme="playful"] article:nth-child(5) { transform: rotate(-0.8deg); }
+[data-theme="playful"] article:nth-child(n+6) { transform: rotate(0.5deg); }
+
+[data-theme="playful"] article:hover {
+  transform: rotate(0deg) scale(1.015) !important;
+  box-shadow: 5px 5px 0 0 #0d0d0d;
+  z-index: 2;
+  position: relative;
+}
+
+/* Thought-bubble inputs */
+[data-theme="playful"] input[type="text"],
+[data-theme="playful"] textarea {
+  border: 2.5px solid #0d0d0d;
+  border-radius: 9999px;
+  background: #fef9c3;
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0d0d0d;
+}
+
+[data-theme="playful"] textarea { border-radius: 1rem; }
+
+[data-theme="playful"] input[type="text"]:focus,
+[data-theme="playful"] textarea:focus {
+  outline: none;
+  border-color: #e53935;
+  box-shadow: 3px 3px 0 0 #e53935;
+  background: #ffffff;
+}
+
+[data-theme="playful"] h1, [data-theme="playful"] h2, [data-theme="playful"] h3 {
+  font-family: var(--font-karantina), sans-serif;
+  font-weight: 700;
+  color: #e53935;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.12);
+  letter-spacing: 0.02em;
+}
+
+[data-theme="playful"] footer {
+  background: #1565c0;
+  color: #ffffff;
+  border: 3px solid #0d0d0d;
+  border-radius: 0.25rem;
+  box-shadow: 5px 5px 0 0 #0d0d0d;
+  transform: rotate(-0.2deg);
+}
+
+[data-theme="playful"] footer button {
+  font-family: var(--font-karantina), sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  border: 2.5px solid #0d0d0d;
+  box-shadow: 3px 3px 0 0 #0d0d0d;
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  S U B V E R S I V E  (חתרני)    ║
+   ║  Neo-brutalist STREET ART.        ║
+   ║  Torn poster. Graffiti stencil.   ║
+   ║  Neon on dark. Rubik Dirt.        ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="subversive"] {
+  --font-body: var(--font-rubik);
+  --font-heading: var(--font-rubik-dirt);
+  font-family: var(--font-rubik), sans-serif;
+  --background: #111111;
+  --foreground: #f0f0f0;
+  --surface: #1e1e1e;
+  --surface-raised: #2a2a2a;
+  --border: #000;
+  --color-primary: #ccff00;
+  --color-primary-foreground: #000000;
+  --color-secondary: #ff2d55;
+  --color-secondary-foreground: #000000;
+  --color-accent: #ff9500;
+  --color-accent-foreground: #000000;
+}
+
+/* Concrete wall texture */
+[data-theme="subversive"] {
+  background-color: #111111;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.015) 2px, rgba(255,255,255,0.015) 3px),
+    repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(255,255,255,0.01) 30px, rgba(255,255,255,0.01) 31px);
+  min-height: 100vh;
+}
+
+/* Header: neon lime spray-painted banner — ripped/glued to wall */
+[data-theme="subversive"] header {
+  background: #ccff00;
+  color: #000000;
+  border: 4px solid #000000;
+  border-radius: 0;
+  box-shadow: 8px 8px 0 0 #000000;
+  transform: rotate(-0.6deg);
+  position: relative;
+  overflow: visible;
+}
+
+/* Graffiti stencil tag in corner */
+[data-theme="subversive"] header::before {
+  content: "NO RULES";
+  position: absolute;
+  top: -0.6rem;
+  left: -0.25rem;
+  font-family: var(--font-rubik-dirt), sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  background: #ff2d55;
+  color: #fff;
+  padding: 0.1rem 0.5rem;
+  border: 2px solid #000;
+  box-shadow: 2px 2px 0 #000;
+  transform: rotate(-3deg);
+}
+
+[data-theme="subversive"] header::after {
+  content: "⚡";
+  position: absolute;
+  bottom: -1rem;
+  right: 1.5rem;
+  font-size: 1.5rem;
+  filter: drop-shadow(2px 2px 0 #000);
+}
+
+[data-theme="subversive"] header h1,
+[data-theme="subversive"] header h2,
+[data-theme="subversive"] header h3,
+[data-theme="subversive"] header p {
+  color: #000000;
+}
+
+[data-theme="subversive"] header input[type="text"] {
+  color: #000000;
+  background: rgba(0,0,0,0.12);
+  border-color: #000;
+}
+
+/* Nav: torn masking-tape strip — mustard yellow */
+[data-theme="subversive"] nav {
+  background: #ff9500;
+  color: #000;
+  border: 4px solid #000;
+  border-radius: 0;
+  box-shadow: 5px 5px 0 0 #000;
+  transform: skewX(-1.5deg);
+}
+
+[data-theme="subversive"] nav button {
+  border: 3px solid #000;
+  border-radius: 0;
+  background: #f0f0f0;
+  color: #000;
+  font-family: var(--font-rubik), sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  transition: all 0.1s ease;
+}
+
+[data-theme="subversive"] nav button[data-active="true"] {
+  background: #ccff00;
+  color: #000;
+  box-shadow: 3px 3px 0 #000;
+  transform: translate(-1px, -1px);
+}
+
+[data-theme="subversive"] nav button:not([data-active="true"]):hover {
+  background: #ff2d55;
+  color: #fff;
+  box-shadow: 3px 3px 0 #000;
+  transform: translate(-1px, -1px);
+}
+
+/* Stage: dark sticker board */
+[data-theme="subversive"] section {
+  background: #1e1e1e;
+  border: 4px solid #000;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Articles: stickers slapped on wall at different angles */
+[data-theme="subversive"] article {
+  border: 3px solid #000;
+  border-radius: 0;
+  background: #2a2a2a;
+  color: #f0f0f0;
+  box-shadow: 5px 5px 0 0 #000;
+  transition: transform 0.1s ease;
+}
+
+[data-theme="subversive"] article:nth-child(1)  { transform: rotate(-1.4deg); background: #2a2a2a; }
+[data-theme="subversive"] article:nth-child(2)  { transform: rotate(0.9deg);  background: #1e1e1e; box-shadow: -4px 4px 0 0 #000; }
+[data-theme="subversive"] article:nth-child(3)  { transform: rotate(-0.6deg); background: #2a2a2a; }
+[data-theme="subversive"] article:nth-child(4)  { transform: rotate(1.6deg);  background: #1e1e1e; }
+[data-theme="subversive"] article:nth-child(5)  { transform: rotate(-1.0deg); background: #333; }
+[data-theme="subversive"] article:nth-child(n+6){ transform: rotate(0.5deg);  background: #2a2a2a; }
+
+/* Some articles get neon accent border */
+[data-theme="subversive"] article:nth-child(3n+1) { border-left: 4px solid #ccff00; }
+[data-theme="subversive"] article:nth-child(3n+2) { border-left: 4px solid #ff2d55; }
+
+[data-theme="subversive"] article:hover {
+  transform: rotate(0deg) scale(1.02) !important;
+  box-shadow: 7px 7px 0 0 #000 !important;
+  z-index: 2;
+  position: relative;
+}
+
+/* Inputs: neon yellow spray-can style */
+[data-theme="subversive"] input[type="text"],
+[data-theme="subversive"] textarea {
+  border: 3px solid #000;
+  border-radius: 0;
+  background: #ccff00;
+  color: #000;
+  font-weight: 700;
+  font-family: var(--font-rubik), sans-serif;
+  caret-color: #000;
+}
+
+[data-theme="subversive"] input[type="text"]::placeholder,
+[data-theme="subversive"] textarea::placeholder { color: rgba(0,0,0,0.5); }
+
+[data-theme="subversive"] input[type="text"]:focus,
+[data-theme="subversive"] textarea:focus {
+  outline: none;
+  box-shadow: 4px 4px 0 0 #000;
+  background: #d4ff00;
+}
+
+[data-theme="subversive"] h1, [data-theme="subversive"] h2, [data-theme="subversive"] h3 {
+  font-family: var(--font-rubik-dirt), sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ccff00;
+}
+
+[data-theme="subversive"] footer {
+  background: #ff2d55;
+  border: 4px solid #000;
+  border-radius: 0;
+  box-shadow: 5px 5px 0 0 #000;
+  transform: skewX(0.8deg);
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  P R I N T  (דפוס)               ║
+   ║  1940s newspaper front page.     ║
+   ║  Masthead, column rules,         ║
+   ║  David Libre serif, cream paper. ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="print"] {
+  --font-body: var(--font-frank-ruhl);
+  --font-heading: var(--font-david-libre);
+  font-family: var(--font-frank-ruhl), serif;
+  --background: #f3efe3;
+  --foreground: #1a1714;
+  --surface: #ece8dc;
+  --surface-raised: #f8f5ec;
+  --border: #7a7060;
+  --color-primary: #1a1714;
+  --color-primary-foreground: #f3efe3;
+  --color-secondary: #4a3f30;
+  --color-secondary-foreground: #f3efe3;
+  --color-accent: #1a1714;
+  --color-accent-foreground: #f3efe3;
+}
+
+[data-theme="print"] { background: #f3efe3; min-height: 100vh; }
+
+/* ── MASTHEAD ── */
+[data-theme="print"] header {
+  border-radius: 0;
+  border: none;
+  border-top: 6px double #1a1714;
+  border-bottom: 2px solid #1a1714;
+  box-shadow: none;
+  background: #f3efe3;
+  text-align: center;
+  position: relative;
+  padding-top: 0.75rem;
+}
+
+/* Decorative rule above masthead */
+[data-theme="print"] header::before {
+  content: "— ✦ —";
+  display: block;
+  font-family: var(--font-frank-ruhl), serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.4em;
+  color: #7a7060;
+  margin-bottom: 0.25rem;
+}
+
+[data-theme="print"] header::after {
+  content: "";
+  display: block;
+  height: 1px;
+  background: #7a7060;
+  margin-top: 0.75rem;
+}
+
+[data-theme="print"] header h1 {
+  font-family: var(--font-david-libre), serif;
+  font-size: 2.8rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: #1a1714;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+/* Nav: newspaper section bar */
+[data-theme="print"] nav {
+  border: none;
+  border-top: 1px solid #7a7060;
+  border-bottom: 3px solid #1a1714;
+  border-radius: 0;
+  background: #f3efe3;
+  box-shadow: none;
+  padding: 0;
+}
+
+[data-theme="print"] nav button {
+  border: none;
+  border-radius: 0;
+  border-right: 1px solid #7a7060;
+  background: transparent;
+  font-family: var(--font-frank-ruhl), serif;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 0.78rem;
+  color: #1a1714;
+  padding: 0.5rem 1rem;
+}
+
+[data-theme="print"] nav button:last-child { border-right: none; }
+
+[data-theme="print"] nav button[data-active="true"] {
+  background: #1a1714;
+  color: #f3efe3;
+}
+
+/* Stage: transparent newspaper page */
+[data-theme="print"] section {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-top: 2px solid #1a1714;
+  padding-top: 0.75rem;
+}
+
+/* Articles: newspaper story blocks with optional print-tag badges */
+[data-theme="print"] article {
+  border: none;
+  border-bottom: 1px solid #c0b8a8;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.6rem 0;
+  position: relative;
+}
+
+[data-theme="print"] article:last-child { border-bottom: none; }
+
+/* Print tag label — shown when data-print-tag is set */
+[data-theme="print"] article[data-print-tag]:not([data-print-tag=""])::before {
+  content: attr(data-print-tag);
+  display: inline-block;
+  font-family: var(--font-frank-ruhl), serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: #1a1714;
+  color: #f3efe3;
+  padding: 0.1rem 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+[data-theme="print"] input[type="text"],
+[data-theme="print"] textarea {
+  border: none;
+  border-bottom: 1.5px solid #7a7060;
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--font-frank-ruhl), serif;
+  color: #1a1714;
+}
+
+[data-theme="print"] input[type="text"]:focus,
+[data-theme="print"] textarea:focus {
+  outline: none;
+  border-bottom-color: #1a1714;
+  border-bottom-width: 2px;
+  background: rgba(255,255,255,0.25);
+}
+
+[data-theme="print"] h1, [data-theme="print"] h2, [data-theme="print"] h3 {
+  font-family: var(--font-david-libre), serif;
+  color: #1a1714;
+  line-height: 1.2;
+}
+
+[data-theme="print"] h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  border-bottom: 2px solid #1a1714;
+  padding-bottom: 0.3rem;
+}
+
+[data-theme="print"] h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  border-bottom: 1px solid #7a7060;
+  padding-bottom: 0.15rem;
+}
+
+[data-theme="print"] h3 { font-size: 1.1rem; font-weight: 700; }
+
+[data-theme="print"] p, [data-theme="print"] li {
+  font-family: var(--font-frank-ruhl), serif;
+  line-height: 1.75;
+  font-size: 0.95rem;
+}
+
+[data-theme="print"] footer {
+  border: none;
+  border-top: 2px solid #1a1714;
+  border-radius: 0;
+  background: #f3efe3;
+  box-shadow: none;
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  T E C H  (הייטק)                ║
+   ║  TERMINAL. Matrix green on dark. ║
+   ║  CLI prompt aesthetic.            ║
+   ║  Handjet dot-matrix font.         ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="tech"] {
+  --font-body: var(--font-handjet);
+  --font-heading: var(--font-handjet);
+  font-family: var(--font-handjet), var(--font-heebo), monospace;
+  --background: #0d1117;
+  --foreground: #00ff41;
+  --surface: #0a0f0a;
+  --surface-raised: #111a11;
+  --border: #1a3a1a;
+  --color-primary: #00ff41;
+  --color-primary-foreground: #000000;
+  --color-secondary: #00d4aa;
+  --color-secondary-foreground: #000000;
+  --color-accent: #ffcc00;
+  --color-accent-foreground: #000000;
+  --color-success: #00ff41;
+  --color-warning: #ffcc00;
+  --color-danger: #ff3b30;
+}
+
+/* Matrix rain texture — scan-line effect */
+[data-theme="tech"] {
+  background-color: #0d1117;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 255, 65, 0.015) 2px,
+      rgba(0, 255, 65, 0.015) 3px
+    );
+  min-height: 100vh;
+}
+
+/* Header: terminal window with titlebar dots */
+[data-theme="tech"] header {
+  border-radius: 0.5rem;
+  border: 1px solid #1a3a1a;
+  box-shadow: 0 0 0 1px #0a200a, 0 0 24px rgba(0,255,65,0.08);
+  background: #0a0f0a;
+  overflow: hidden;
+  font-family: var(--font-handjet), monospace;
+}
+
+/* Terminal title bar */
+[data-theme="tech"] header::before {
+  content: "⬤  ⬤  ⬤   CHAMAMA_HACKATHON — bash";
+  display: block;
+  background: #1a2a1a;
+  border-bottom: 1px solid #1a3a1a;
+  padding: 0.35rem 0.75rem;
+  font-family: var(--font-handjet), monospace;
+  font-size: 0.75rem;
+  color: #4a7a4a;
+  letter-spacing: 0.04em;
+}
+
+/* Prompt symbol before title */
+[data-theme="tech"] header h1::before {
+  content: "$ ";
+  color: #00ff41;
+  font-family: var(--font-handjet), monospace;
+}
+
+[data-theme="tech"] header h1 {
+  font-family: var(--font-handjet), monospace;
+  color: #00ff41;
+  font-size: 1.5rem;
+  letter-spacing: 0.05em;
+  text-shadow: 0 0 8px rgba(0,255,65,0.5);
+}
+
+[data-theme="tech"] header p { color: #4a7a4a; font-size: 0.85rem; }
+
+/* Cursor blink for group name input */
+[data-theme="tech"] header input[type="text"] {
+  color: #00ff41;
+  background: transparent;
+  border-color: #1a3a1a;
+  caret-color: #00ff41;
+  font-family: var(--font-handjet), monospace;
+}
+
+[data-theme="tech"] nav {
+  border-radius: 0;
+  border: 1px solid #1a3a1a;
+  box-shadow: none;
+  background: #0a0f0a;
+}
+
+[data-theme="tech"] nav button {
+  border-radius: 0;
+  border: none;
+  border-right: 1px solid #1a3a1a;
+  background: transparent;
+  color: #4a7a4a;
+  font-family: var(--font-handjet), monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  transition: all 0.1s ease;
+  padding: 0.5rem 1rem;
+}
+
+[data-theme="tech"] nav button:last-child { border-right: none; }
+
+[data-theme="tech"] nav button::before { content: "> "; color: #1a3a1a; }
+
+[data-theme="tech"] nav button[data-active="true"] {
+  background: #0a200a;
+  color: #00ff41;
+  text-shadow: 0 0 6px rgba(0,255,65,0.4);
+}
+
+[data-theme="tech"] nav button[data-active="true"]::before { color: #00ff41; }
+
+[data-theme="tech"] nav button:not([data-active="true"]):hover {
+  background: #111a11;
+  color: #00cc33;
+}
+
+/* Stage: terminal output pane */
+[data-theme="tech"] section {
+  border-radius: 0;
+  border: 1px solid #1a3a1a;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+  background: #0a0f0a;
+}
+
+/* Articles: terminal output lines */
+[data-theme="tech"] article {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid #0f2010;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-handjet), monospace;
+  font-size: 0.88rem;
+  color: #00ff41;
+  padding: 0.5rem 0.5rem 0.5rem 1.5rem;
+  position: relative;
+}
+
+/* Output cursor indicator */
+[data-theme="tech"] article::before {
+  content: ">";
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #1a5c1a;
+  font-family: var(--font-handjet), monospace;
+}
+
+[data-theme="tech"] article:last-child { border-bottom: none; }
+
+[data-theme="tech"] article:hover {
+  background: #0f1f0f;
+  border-bottom-color: #1a4a1a;
+}
+
+[data-theme="tech"] input[type="text"],
+[data-theme="tech"] textarea {
+  border-radius: 0;
+  border: 1px solid #1a3a1a;
+  background: #0a0f0a;
+  color: #00ff41;
+  font-family: var(--font-handjet), monospace;
+  font-size: 0.9rem;
+  caret-color: #00ff41;
+}
+
+[data-theme="tech"] input[type="text"]::placeholder,
+[data-theme="tech"] textarea::placeholder { color: #1a4a1a; }
+
+[data-theme="tech"] input[type="text"]:focus,
+[data-theme="tech"] textarea:focus {
+  outline: none;
+  border-color: #00ff41;
+  box-shadow: 0 0 0 1px #00ff41, 0 0 12px rgba(0,255,65,0.15);
+  background: #050a05;
+}
+
+[data-theme="tech"] h1, [data-theme="tech"] h2, [data-theme="tech"] h3 {
+  font-family: var(--font-handjet), monospace;
+  font-weight: 700;
+  color: #00ff41;
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 12px rgba(0,255,65,0.35);
+}
+
+[data-theme="tech"] footer {
+  border-radius: 0;
+  border: 1px solid #1a3a1a;
+  background: #0a0f0a;
+  box-shadow: none;
+}
+
+/* ===========================================================================
+
+   ╔═══════════════════════════════════╗
+   ║  S O C I A L  (רשת חברתית)       ║
+   ║  Facebook GROUP PAGE.             ║
+   ║  Blue cover, white cards,         ║
+   ║  post chrome with timestamps,     ║
+   ║  👍 reactions on select posts.    ║
+   ╚═══════════════════════════════════╝
+
+   =========================================================================== */
+
+[data-theme="social"] {
+  --font-body: var(--font-open-sans);
+  --font-heading: var(--font-open-sans);
+  font-family: var(--font-open-sans), sans-serif;
+  --background: #f0f2f5;
+  --foreground: #050505;
+  --surface: #e4e6eb;
+  --surface-raised: #ffffff;
+  --border: #ccd0d5;
+  --color-primary: #1877f2;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #42b72a;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #f02849;
+  --color-accent-foreground: #ffffff;
+}
+
+[data-theme="social"] { background: #f0f2f5; min-height: 100vh; }
+
+/* ── Facebook Group Header ── */
+[data-theme="social"] header {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #ccd0d5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  overflow: hidden;
+  padding: 0 !important;
+}
+
+/* Cover photo strip — Facebook blue gradient */
+[data-theme="social"] header > div:first-child {
+  background: linear-gradient(180deg, #1877f2 0%, #0d6efd 60%, #1565e8 100%);
+  padding: 1.5rem 1.25rem 2.5rem;
+  position: relative;
+}
+
+/* Group type badge */
+[data-theme="social"] header > div:first-child::before {
+  content: "🔒 קבוצה סגורה  ·  👥 חברים";
+  position: absolute;
+  bottom: 0.5rem;
+  right: 1rem;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.85);
+  letter-spacing: 0.02em;
+}
+
+[data-theme="social"] header > div:first-child h1 {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.75rem;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+[data-theme="social"] header > div:first-child p { color: rgba(255,255,255,0.9); }
+
+/* Group info band — white bar */
+[data-theme="social"] header > div:last-child {
+  background: #ffffff;
+  border-top: 1px solid #e4e6eb;
+  padding: 0.75rem 1.25rem;
+}
+
+/* Nav: Facebook tab bar */
+[data-theme="social"] nav {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #ccd0d5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  padding: 0 0.5rem;
+  display: flex;
+  gap: 0;
+}
+
+[data-theme="social"] nav button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #65676b;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 3px solid transparent;
+  transition: all 0.12s ease;
+}
+
+[data-theme="social"] nav button[data-active="true"] {
+  color: #1877f2;
+  border-bottom-color: #1877f2;
+}
+
+[data-theme="social"] nav button:not([data-active="true"]):hover {
+  background: #f0f2f5;
+  border-radius: 0.5rem;
+  color: #050505;
+}
+
+/* Stage: transparent feed */
+[data-theme="social"] section {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0 !important;
+}
+
+/* ── POST CARDS ── */
+[data-theme="social"] article {
+  background: #ffffff;
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  padding: 0 !important;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+/* Post header: avatar + name + timestamp */
+[data-theme="social"] article::before {
+  content: "👤  ·  " attr(data-social-time);
+  display: block;
+  background: #ffffff;
+  padding: 0.75rem 1rem 0.5rem;
+  font-size: 0.8rem;
+  color: #65676b;
+  font-weight: 600;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+/* Post content area — give it padding */
+[data-theme="social"] article > * {
+  padding: 0.5rem 1rem;
+}
+
+/* Reaction bar — only on every other article (realistic sparse engagement) */
+[data-theme="social"] article:nth-child(odd)::after {
+  content: "👍  אהבתי  ·  💬  הגב  ·  ↗  שתף";
+  display: block;
+  background: #ffffff;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  color: #65676b;
+  font-weight: 600;
+  border-top: 1px solid #e4e6eb;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="social"] input[type="text"],
+[data-theme="social"] textarea {
+  border: 1px solid #ccd0d5;
+  border-radius: 9999px;
+  background: #f0f2f5;
+  color: #050505;
+  font-size: 0.9375rem;
+}
+
+[data-theme="social"] textarea { border-radius: 1.25rem; }
+
+[data-theme="social"] input[type="text"]:focus,
+[data-theme="social"] textarea:focus {
+  outline: none;
+  border-color: #1877f2;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px rgba(24,119,242,0.2);
+}
+
+[data-theme="social"] h1, [data-theme="social"] h2, [data-theme="social"] h3 {
+  font-weight: 700;
+  color: #050505;
+}
+
+[data-theme="social"] footer {
+  background: #ffffff;
+  border: 1px solid #ccd0d5;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+}
+
+/* ===========================================================================
+   THEMES: formal + tech footer
+   =========================================================================== */
+
+[data-theme="formal"] {
+  --font-body: var(--font-arimo);
+  --font-heading: var(--font-frank-ruhl);
+  font-family: var(--font-arimo), sans-serif;
+  --background: #fafaf8;
+  --foreground: #1a1a1a;
+  --surface: #f4f3ef;
+  --surface-raised: #ffffff;
+  --border: #c5b9a8;
+  --color-primary: #1e3a5f;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #7c6d5a;
+  --color-secondary-foreground: #ffffff;
+  --color-accent: #b8860b;
+  --color-accent-foreground: #ffffff;
+}
+
+[data-theme="formal"] header {
+  border-radius: 0;
+  border: none;
+  border-top: 4px solid #1e3a5f;
+  border-bottom: 1px solid #c5b9a8;
+  box-shadow: none;
+  background: #fafaf8;
+}
+
+[data-theme="formal"] nav {
+  border-radius: 0;
+  border: none;
+  border-bottom: 2px solid #1e3a5f;
+  background: #fafaf8;
+}
+
+[data-theme="formal"] nav button {
+  border-radius: 0;
+  border: 1px solid #c5b9a8;
+  background: transparent;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+[data-theme="formal"] nav button[data-active="true"] {
+  background: #1e3a5f;
+  color: #ffffff;
+  border-color: #1e3a5f;
+}
+
+[data-theme="formal"] section {
+  border-radius: 0;
+  border: none;
+  background: #fafaf8;
+  box-shadow: none;
+}
+
+[data-theme="formal"] article {
+  border: 1px solid #e0d8cc;
+  border-radius: 0;
+  background: #fafaf8;
+  box-shadow: none;
+}
+
+[data-theme="formal"] input[type="text"],
+[data-theme="formal"] textarea {
+  border: 1px solid #c5b9a8;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+[data-theme="formal"] input[type="text"]:focus,
+[data-theme="formal"] textarea:focus {
+  outline: none;
+  border-color: #1e3a5f;
+  box-shadow: 0 0 0 2px rgba(30,58,95,0.12);
+}
+
+[data-theme="formal"] h1, [data-theme="formal"] h2, [data-theme="formal"] h3 {
+  font-family: var(--font-frank-ruhl), serif;
+  font-weight: 700;
+  color: #1e3a5f;
+  letter-spacing: 0.03em;
+}
+
+[data-theme="formal"] footer {
+  border-radius: 0;
+  border: 1px solid #c5b9a8;
+  background: #fafaf8;
+  box-shadow: none;
 }

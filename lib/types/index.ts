@@ -33,10 +33,12 @@ export type ElementType =
   | "hero"
   | "alert"
   | "list"
+  | "icon_card"
   // Input
   | "short_text"
   | "long_text"
   | "repeater_list"
+  | "advanced_repeater"
   // Complex
   | "card_builder"
   | "options_builder"
@@ -48,6 +50,9 @@ export interface Element {
   id: string;
   type: ElementType;
   config: Record<string, unknown>;
+  // Index signature allows safe spreading and casting to/from Record<string, unknown>
+  // in renderer and builder code without double-casting through `unknown`.
+  [key: string]: unknown;
 }
 
 export interface Column {
@@ -79,6 +84,8 @@ export interface HackathonDefinition {
   slogan: string;
   description: string;
   theme: ThemeTokens;
+  /** The visual theme applied to the runtime view. Defaults to "simple". */
+  themeName?: string;
   is_active: boolean;
   stages: Stage[];
 }

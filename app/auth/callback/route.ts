@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     const { data: invite } = await supabase
       .from("student_invites")
-      .select("email, name, group_id")
+      .select("*")
       .ilike("email", userEmail)
       .maybeSingle();
 
@@ -79,16 +79,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    const { error: insertError } = await supabase.from("users").insert({
+    const inviteRow = (invite ?? {}) as Record<string, unknown>;
+    const userPayload: Record<string, unknown> = {
       id: user.id,
       email: userEmail,
       name:
-        (invite.name as string | null) ||
+        (typeof inviteRow.name === "string" ? inviteRow.name : null) ||
         (user.user_metadata?.full_name as string | undefined) ||
         "",
-      role: "user",
-      group_id: invite.group_id as string,
-    });
+      role:
+        inviteRow.role === "admin" || inviteRow.role === "user"
+          ? inviteRow.role
+          : "user",
+      group_id: typeof inviteRow.group_id === "string" ? inviteRow.group_id : null,
+    };
+
+    if (typeof inviteRow.home_group === "string" && inviteRow.home_group) {
+      userPayload.home_group = inviteRow.home_group;
+    }
+
+    const { error: insertError } = await supabase.from("users").insert(userPayload);
 
     if (insertError) {
       await supabase.auth.signOut();

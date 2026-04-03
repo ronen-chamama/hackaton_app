@@ -18,6 +18,7 @@ export function StageNav({ stages, currentStageId, onSelect }: StageNavProps) {
             <button
               key={stage.id}
               type="button"
+              data-active={isActive ? "true" : "false"}
               className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
                 isActive
                   ? "border-primary bg-primary text-primary-foreground"

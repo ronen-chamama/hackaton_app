@@ -2,16 +2,20 @@
 
 import { useMemo } from "react";
 import { AlertElement } from "@/components/elements/display/AlertElement";
+import { CardBuilderElement } from "@/components/elements/complex/CardBuilderElement";
+import { OptionsBuilderElement } from "@/components/elements/complex/OptionsBuilderElement";
 import { PitchElement } from "@/components/elements/complex/PitchElement";
 import { PositionPaperElement } from "@/components/elements/complex/PositionPaperElement";
 import { ResearchBlockElement } from "@/components/elements/complex/ResearchBlockElement";
 import { HeadingElement } from "@/components/elements/display/HeadingElement";
 import { HeroElement } from "@/components/elements/display/HeroElement";
+import { IconCardElement } from "@/components/elements/display/IconCardElement";
 import { ImageElement } from "@/components/elements/display/ImageElement";
 import { ListElement } from "@/components/elements/display/ListElement";
 import { TextElement } from "@/components/elements/display/TextElement";
 import { VideoElement } from "@/components/elements/display/VideoElement";
 import { LongTextElement } from "@/components/elements/input/LongTextElement";
+import { AdvancedRepeaterElement } from "@/components/elements/input/AdvancedRepeaterElement";
 import { RepeaterListElement } from "@/components/elements/input/RepeaterListElement";
 import { ShortTextElement } from "@/components/elements/input/ShortTextElement";
 import { createClient } from "@/lib/supabase/client";
@@ -66,6 +70,32 @@ function asRecord(value: unknown): Record<string, unknown> {
   }
 
   return {};
+}
+
+function asRecordArray(value: unknown): Array<Record<string, unknown>> {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.filter(
+          (item): item is Record<string, unknown> =>
+            !!item && typeof item === "object" && !Array.isArray(item)
+        );
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (item): item is Record<string, unknown> =>
+      !!item && typeof item === "object" && !Array.isArray(item)
+  );
 }
 
 export function ElementRenderer({
@@ -158,6 +188,16 @@ export function ElementRenderer({
       return <ListElement items={items} style={style} />;
     }
 
+    case "icon_card": {
+      return (
+        <IconCardElement
+          iconName={asString(element.config.iconName, "Star")}
+          title={asString(element.config.title)}
+          text={asString(element.config.text)}
+        />
+      );
+    }
+
     case "short_text": {
       const placeholder = asString(element.config.placeholder);
       const value = asString(groupValue?.value);
@@ -189,6 +229,37 @@ export function ElementRenderer({
       return (
         <RepeaterListElement
           placeholder={placeholder}
+          addButtonText={addButtonText}
+          value={value}
+          onSave={saveInputValue}
+        />
+      );
+    }
+
+    case "advanced_repeater": {
+      const fields = Array.isArray(element.config.fields)
+        ? element.config.fields
+            .filter(
+              (item): item is Record<string, unknown> =>
+                !!item && typeof item === "object" && !Array.isArray(item)
+            )
+            .map((item) => ({
+              id: asString(item.id),
+              placeholder: asString(item.placeholder),
+            }))
+            .filter((item) => item.id)
+        : [];
+      const addButtonText = asString(element.config.addButtonText);
+      const value = asRecordArray(groupValue?.value).map((row) => {
+        const nextRow: Record<string, string> = {};
+        for (const field of fields) {
+          nextRow[field.id] = asString(row[field.id]);
+        }
+        return nextRow;
+      });
+      return (
+        <AdvancedRepeaterElement
+          fields={fields}
           addButtonText={addButtonText}
           value={value}
           onSave={saveInputValue}
@@ -242,6 +313,52 @@ export function ElementRenderer({
             ask: asString(value.ask),
             closing: asString(value.closing),
           }}
+          onSave={saveInputValue}
+        />
+      );
+    }
+
+    case "card_builder": {
+      const value = asRecordArray(groupValue?.value).map((row) => ({
+        title: asString(row.title),
+        description: asString(row.description),
+        input: asString(row.input),
+      }));
+      const layout =
+        element.config.layout === "horizontal" ||
+        element.config.layout === "grid" ||
+        element.config.layout === "vertical"
+          ? element.config.layout
+          : "vertical";
+      const gridColumns =
+        typeof element.config.gridColumns === "number"
+          ? element.config.gridColumns
+          : Number(element.config.gridColumns ?? 2);
+      return (
+        <CardBuilderElement
+          layout={layout}
+          gridColumns={Number.isNaN(gridColumns) ? 2 : gridColumns}
+          addButtonText={asString(element.config.addButtonText)}
+          titlePlaceholder={asString(element.config.titlePlaceholder)}
+          descPlaceholder={asString(element.config.descPlaceholder)}
+          inputPlaceholder={asString(element.config.inputPlaceholder)}
+          value={value}
+          onSave={saveInputValue}
+        />
+      );
+    }
+
+    case "options_builder": {
+      const value = asRecordArray(groupValue?.value).map((row) => ({
+        title: asString(row.title),
+        subtitle: asString(row.subtitle),
+        content: asString(row.content),
+      }));
+      return (
+        <OptionsBuilderElement
+          addButtonText={asString(element.config.addButtonText)}
+          optionTitlePrefix={asString(element.config.optionTitlePrefix)}
+          value={value}
           onSave={saveInputValue}
         />
       );

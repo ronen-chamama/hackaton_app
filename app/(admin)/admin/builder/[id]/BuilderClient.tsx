@@ -10,11 +10,14 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { BuilderCanvas } from "@/components/builder/BuilderCanvas";
 import { BuilderSidebar } from "@/components/builder/BuilderSidebar";
+import { saveAsTemplate } from "@/lib/actions/hackathon";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
+import { THEME_NAMES, type ThemeName } from "@/lib/themes";
 import type {
   Container,
   Element,
@@ -66,9 +69,13 @@ const PALETTE_TYPES: ElementType[] = [
   "hero",
   "alert",
   "list",
+  "icon_card",
   "short_text",
   "long_text",
   "repeater_list",
+  "advanced_repeater",
+  "card_builder",
+  "options_builder",
   "research_block",
   "position_paper",
   "pitch",
@@ -149,6 +156,7 @@ export default function BuilderClient({
     null
   );
   const [activeDrag, setActiveDrag] = useState<ActiveDrag>(null);
+  const [isSavingTemplate, startSavingTemplate] = useTransition();
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
   const isFirstRenderRef = useRef(true);
@@ -331,11 +339,36 @@ export default function BuilderClient({
         return { type: "info", text: "" };
       case "list":
         return { items: [], style: "bullets" };
+      case "icon_card":
+        return {
+          iconName: "Star",
+          title: "",
+          text: "",
+        };
       case "short_text":
       case "long_text":
         return { placeholder: "" };
       case "repeater_list":
         return { placeholder: "", addButtonText: "" };
+      case "advanced_repeater":
+        return {
+          fields: [{ id: createId("field").slice(-8), placeholder: "" }],
+          addButtonText: "",
+        };
+      case "card_builder":
+        return {
+          layout: "vertical",
+          gridColumns: 2,
+          addButtonText: "",
+          titlePlaceholder: "",
+          descPlaceholder: "",
+          inputPlaceholder: "",
+        };
+      case "options_builder":
+        return {
+          addButtonText: "",
+          optionTitlePrefix: "",
+        };
       case "research_block":
         return { title: "", findings: [], sources: [], summary: "" };
       case "position_paper":
@@ -629,6 +662,21 @@ export default function BuilderClient({
     });
   };
 
+  const changeTheme = (theme: ThemeName) => {
+    updateDraft((prev) => ({ ...prev, themeName: theme }));
+  };
+
+  const handleSaveAsTemplate = () => {
+    startSavingTemplate(async () => {
+      const result = await saveAsTemplate(hackathonId);
+      if (result.ok) {
+        window.alert(t("templateSaved"));
+        return;
+      }
+      window.alert(result.error ?? t("errorGeneric"));
+    });
+  };
+
   return (
     <DndContext
       id="builder-dnd-context"
@@ -636,8 +684,14 @@ export default function BuilderClient({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-screen overflow-hidden">
-        <div className="grid h-full grid-cols-[20rem_1fr]">
+      <div className="flex h-screen flex-col overflow-hidden">
+        <BuilderHeader
+          hackathonId={hackathonId}
+          saveLabel={saveState === "saving" ? t("saving") : t("saved")}
+          isSavingTemplate={isSavingTemplate}
+          onSaveAsTemplate={handleSaveAsTemplate}
+        />
+        <div className="grid min-h-0 flex-1 grid-cols-[20rem_1fr]">
           <BuilderSidebar
             saveLabel={saveState === "saving" ? t("saving") : t("saved")}
             onAddStage={addStage}
@@ -646,6 +700,12 @@ export default function BuilderClient({
             onUpdateElementConfig={updateElementConfig}
             onUpdateElementGlobal={updateElementGlobal}
             paletteTypes={PALETTE_TYPES}
+            currentTheme={
+              THEME_NAMES.includes(draft.themeName as ThemeName)
+                ? (draft.themeName as ThemeName)
+                : "simple"
+            }
+            onThemeChange={changeTheme}
           />
           <BuilderCanvas
             definition={draft}
