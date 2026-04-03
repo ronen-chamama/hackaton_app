@@ -30,7 +30,7 @@ export default function StudentRuntimePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [groupId, setGroupId] = useState<string | null>(null);
   const [groupName, setGroupName] = useState("");
-  const [groupMembers, setGroupMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [groupValues, setGroupValues] = useState<GroupValueMap>({});
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
 
@@ -112,20 +112,39 @@ export default function StudentRuntimePage() {
         }
 
         let nextGroupName = "";
-        let nextGroupMembers: Array<{ id: string; name: string }> = [];
+        let nextGroupMembers: string[] = [];
 
         if (effectiveGroupId) {
-          const [{ data: groupRow }, { data: membersRows }] = await Promise.all([
-            supabase.from("groups").select("name").eq("id", effectiveGroupId).maybeSingle(),
+          const [{ data: groupRow }, { data: usersRows }, { data: invitesRows }] = await Promise.all([
+            supabase.from("groups").select("id, name").eq("id", effectiveGroupId).maybeSingle(),
             supabase
               .from("users")
-              .select("id, name")
+              .select("name")
+              .eq("group_id", effectiveGroupId)
+              .order("name"),
+            supabase
+              .from("student_invites")
+              .select("name")
               .eq("group_id", effectiveGroupId)
               .order("name"),
           ]);
 
-          nextGroupName = (groupRow?.name as string | null) ?? "";
-          nextGroupMembers = (membersRows as Array<{ id: string; name: string }> | null) ?? [];
+          const groupRecord = (groupRow as Record<string, unknown> | null) ?? null;
+          const groupNameFromName =
+            groupRecord && typeof groupRecord.name === "string" ? groupRecord.name.trim() : "";
+          const groupNameFromId =
+            groupRecord && typeof groupRecord.id === "string" ? groupRecord.id : "";
+          nextGroupName = groupNameFromName || groupNameFromId || effectiveGroupId;
+
+          const namesFromUsers = ((usersRows as Array<{ name: string | null }> | null) ?? [])
+            .map((row) => (typeof row.name === "string" ? row.name.trim() : ""))
+            .filter(Boolean);
+
+          const namesFromInvites = ((invitesRows as Array<{ name: string | null }> | null) ?? [])
+            .map((row) => (typeof row.name === "string" ? row.name.trim() : ""))
+            .filter(Boolean);
+
+          nextGroupMembers = Array.from(new Set([...namesFromUsers, ...namesFromInvites]));
         }
 
         if (cancelled) {
@@ -256,6 +275,7 @@ export default function StudentRuntimePage() {
       {/* Boxed inner wrapper — theme background fills full-bleed, content is centered */}
       <div className="mx-auto w-full max-w-5xl px-4 py-4 md:px-6 md:py-6 flex flex-col gap-4">
         <RuntimeHeader
+          key={`${activeHackathon.id}:${groupId ?? "no-group"}`}
           title={activeHackathon.definition.title || activeHackathon.title}
           slogan={activeHackathon.definition.slogan}
           description={activeHackathon.definition.description}

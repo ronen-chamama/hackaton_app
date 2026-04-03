@@ -208,6 +208,7 @@ export function RosterDashboard({
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
@@ -450,80 +451,29 @@ export function RosterDashboard({
   const handleExportPrintableGroups = () => {
     startTransition(() => {
       void exportGroupsForPrintData()
-        .then(async (result) => {
+        .then((result) => {
           if (!result.ok) {
             window.alert(result.error ?? "Export failed");
             return;
           }
-
-          const ExcelJS = await import("exceljs");
-          const workbook = new ExcelJS.Workbook();
-          const sheet = workbook.addWorksheet("Groups");
-
-          sheet.views = [{ rightToLeft: true }];
-          sheet.columns = [
-            { width: 4 },
-            { width: 42 },
-            { width: 4 },
-          ];
-
-          sheet.getCell("B2").value = `${t("downloadGroups")} ${result.hackathonTitle}`.trim();
-          sheet.getCell("B2").font = { size: 18, bold: true };
-          sheet.getCell("B2").alignment = { horizontal: "center", vertical: "middle" };
-
-          let rowCursor = 4;
-          for (const group of result.groups) {
-            const headerCell = sheet.getCell(`B${rowCursor}`);
-            headerCell.value = group.name;
-            headerCell.font = { bold: true, size: 14 };
-            headerCell.border = {
-              top: { style: "thin" },
-              left: { style: "thin" },
-              right: { style: "thin" },
-              bottom: { style: "thin" },
-            };
-            headerCell.fill = {
-              type: "pattern",
-              pattern: "solid",
-              fgColor: { argb: "FFF5F5F5" },
-            };
-
-            rowCursor += 1;
-            if (group.members.length === 0) {
-              const emptyCell = sheet.getCell(`B${rowCursor}`);
-              emptyCell.value = "-";
-              emptyCell.border = {
-                top: { style: "thin" },
-                left: { style: "thin" },
-                right: { style: "thin" },
-                bottom: { style: "thin" },
-              };
-              rowCursor += 1;
-            } else {
-              for (const member of group.members) {
-                const memberCell = sheet.getCell(`B${rowCursor}`);
-                memberCell.value = member;
-                memberCell.border = {
-                  top: { style: "thin" },
-                  left: { style: "thin" },
-                  right: { style: "thin" },
-                  bottom: { style: "thin" },
-                };
-                rowCursor += 1;
-              }
-            }
-
-            rowCursor += 1;
+          if (!result.fileBase64) {
+            window.alert("Export failed");
+            return;
           }
 
-          const buffer = await workbook.xlsx.writeBuffer();
-          const blob = new Blob([buffer], {
+          const byteCharacters = atob(result.fileBase64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let index = 0; index < byteCharacters.length; index += 1) {
+            byteNumbers[index] = byteCharacters.charCodeAt(index);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           });
           const url = URL.createObjectURL(blob);
           const anchor = document.createElement("a");
           anchor.href = url;
-          anchor.download = "groups-for-print.xlsx";
+          anchor.download = result.filename || "hackathon_groups.xlsx";
           document.body.appendChild(anchor);
           anchor.click();
           anchor.remove();

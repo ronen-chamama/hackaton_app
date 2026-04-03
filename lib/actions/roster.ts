@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import ExcelJS from "exceljs";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
 
@@ -129,22 +130,20 @@ export async function createHackathonGroup(groupPrefix?: string) {
     .from("groups")
     .insert({
       name: nextName,
-      title: nextName,
       hackathon_id: activeHackathonId,
     })
-    .select("*")
+    .select("id, name")
     .single();
 
   let createdData = data as Record<string, unknown> | null;
   if (error || !createdData) {
-    // Backward-compatible fallback when schema has no `title` column.
     const { data: fallbackData, error: fallbackError } = await supabase
       .from("groups")
       .insert({
         name: nextName,
         hackathon_id: activeHackathonId,
       })
-      .select("*")
+      .select("id, name")
       .single();
 
     if (fallbackError || !fallbackData) {
@@ -159,10 +158,7 @@ export async function createHackathonGroup(groupPrefix?: string) {
   const row = createdData as Record<string, unknown>;
   return {
     id: String(row.id),
-    name:
-      (typeof row.title === "string" && row.title) ||
-      (typeof row.name === "string" && row.name) ||
-      nextName,
+    name: (typeof row.name === "string" && row.name) || nextName,
   };
 }
 
@@ -289,7 +285,7 @@ export async function exportGroupsForPrintData() {
 
   const { data: groups, error: groupsError } = await supabase
     .from("groups")
-    .select("id, name, title")
+    .select("id, name")
     .eq("hackathon_id", activeHackathonId)
     .order("name");
 
@@ -333,10 +329,7 @@ export async function exportGroupsForPrintData() {
   const printableGroups = (groups ?? []).map((group) => {
     const row = group as Record<string, unknown>;
     const groupId = String(row.id);
-    const groupName =
-      (typeof row.title === "string" && row.title) ||
-      (typeof row.name === "string" && row.name) ||
-      groupId;
+    const groupName = (typeof row.name === "string" && row.name) || groupId;
     return {
       id: groupId,
       name: groupName,
@@ -344,14 +337,85 @@ export async function exportGroupsForPrintData() {
     };
   });
 
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("Groups");
+
+  sheet.views = [{ rightToLeft: true }];
+  sheet.columns = [
+    { width: 25 },
+    { width: 3 },
+    { width: 3 },
+    { width: 25 },
+    { width: 3 },
+    { width: 3 },
+    { width: 25 },
+  ];
+
+  const hackathonTitle =
+    (hackathonRow as Record<string, unknown> | null)?.title &&
+    typeof (hackathonRow as Record<string, unknown>).title === "string"
+      ? String((hackathonRow as Record<string, unknown>).title)
+      : "";
+
+  sheet.mergeCells("A1:G2");
+  const titleCell = sheet.getCell("A1");
+  titleCell.value = `${t("groups")} - ${hackathonTitle}`.trim();
+  titleCell.font = { size: 22, bold: true };
+  titleCell.alignment = { horizontal: "center", vertical: "middle" };
+
+  const cardStartColumns = [1, 4, 7];
+  let currentRow = 4;
+
+  for (let index = 0; index < printableGroups.length; index += 3) {
+    const chunk = printableGroups.slice(index, index + 3);
+    const maxMembersInChunk = Math.max(
+      1,
+      ...chunk.map((group) => group.members.length)
+    );
+
+    chunk.forEach((group, chunkIndex) => {
+      const startCol = cardStartColumns[chunkIndex];
+      const headerCell = sheet.getCell(currentRow, startCol);
+
+      headerCell.value = group.name;
+      headerCell.font = { bold: true, size: 14 };
+      headerCell.alignment = { horizontal: "center", vertical: "middle" };
+      headerCell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF5F5F5" },
+      };
+      headerCell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        right: { style: "thin" },
+        bottom: { style: "thin" },
+      };
+
+      for (let memberRowOffset = 0; memberRowOffset < maxMembersInChunk; memberRowOffset += 1) {
+        const memberCell = sheet.getCell(currentRow + 1 + memberRowOffset, startCol);
+        const memberName = group.members[memberRowOffset];
+        memberCell.value = memberName ?? (group.members.length === 0 && memberRowOffset === 0 ? "-" : "");
+        memberCell.alignment = { horizontal: "center", vertical: "middle" };
+        memberCell.border = {
+          top: { style: "thin" },
+          left: { style: "thin" },
+          right: { style: "thin" },
+          bottom: { style: "thin" },
+        };
+      }
+    });
+
+    currentRow += maxMembersInChunk + 3;
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const fileBase64 = Buffer.from(buffer).toString("base64");
+
   return {
     ok: true as const,
-    hackathonTitle:
-      (hackathonRow as Record<string, unknown> | null)?.title &&
-      typeof (hackathonRow as Record<string, unknown>).title === "string"
-        ? String((hackathonRow as Record<string, unknown>).title)
-        : "",
-    groups: printableGroups,
+    fileBase64,
+    filename: "hackathon_groups.xlsx",
   };
 }
 

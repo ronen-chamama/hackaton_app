@@ -7,11 +7,6 @@ import { t } from "@/lib/i18n";
 // Types
 // ---------------------------------------------------------------------------
 
-interface GroupMember {
-  id: string;
-  name: string;
-}
-
 interface RuntimeHeaderProps {
   /** Hackathon title (definition.title with fallback to hackathon.title). */
   title: string;
@@ -22,7 +17,7 @@ interface RuntimeHeaderProps {
   /** Current persisted name of this user's group. */
   groupName: string;
   /** All members of this user's group, sorted by name. */
-  groupMembers: GroupMember[];
+  groupMembers: string[];
   /**
    * Called with the new value whenever the group-name input should be saved.
    * Receives the trimmed name after a 600 ms debounce or on blur.
@@ -78,13 +73,6 @@ export function RuntimeHeader({
   const [draft, setDraft] = useState(groupName);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(groupName);
-
-  // Keep draft in sync when the parent re-fetches the group (e.g. on load or
-  // when a team-mate renames the group via realtime).
-  useEffect(() => {
-    setDraft(groupName);
-    lastSavedRef.current = groupName;
-  }, [groupName]);
 
   // Cleanup: flush any pending timer on unmount so we never call a stale save.
   useEffect(() => {
@@ -208,13 +196,7 @@ export function RuntimeHeader({
               {t("groupMembers")}
             </p>
             {groupMembers.length > 0 ? (
-              <ul className="flex flex-wrap gap-x-3 gap-y-1">
-                {groupMembers.map((member) => (
-                  <li key={member.id} className="text-sm text-foreground">
-                    {member.name}
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm text-foreground">{groupMembers.join(", ")}</p>
             ) : (
               <span className="text-sm text-foreground/40">—</span>
             )}
