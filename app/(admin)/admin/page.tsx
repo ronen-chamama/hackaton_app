@@ -1,11 +1,13 @@
 ﻿import Link from "next/link";
 import Script from "next/script";
 import { Copy, Edit3, Eye, Power, Trash2 } from "lucide-react";
+import { LoginSettingsManager } from "@/components/admin/LoginSettingsManager";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
 import {
   createHackathon,
   deleteHackathon,
+  deleteTemplate,
   duplicateHackathon,
   toggleActive,
   togglePublish,
@@ -28,24 +30,60 @@ type TemplateRow = {
 export default async function AdminHackathonsPage() {
   const supabase = await createClient();
 
-  const [{ data: rows }, { data: templateRows }] = await Promise.all([
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let isSuperAdmin = false;
+  if (user) {
+    const { data: actor } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    isSuperAdmin = actor?.role === "super-admin";
+  }
+
+  const [{ data: rows }, { data: templateRows }, { data: loginSettings }] =
+    await Promise.all([
     supabase
       .from("hackathons")
       .select("id, title, is_active, is_published")
       .eq("is_template", false)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("hackathons")
-      .select("id, title")
-      .eq("is_template", true)
-      .order("created_at", { ascending: false }),
-  ]);
+      isSuperAdmin
+        ? supabase
+            .from("hackathons")
+            .select("id, title")
+            .eq("is_template", true)
+            .order("created_at", { ascending: false })
+        : Promise.resolve({ data: [] as TemplateRow[] }),
+      supabase
+        .from("login_settings")
+        .select("message, image_url")
+        .eq("id", 1)
+        .maybeSingle(),
+    ]);
 
   const hackathons = (rows ?? []) as HackathonRow[];
   const templates = (templateRows ?? []) as TemplateRow[];
+  const loginMessage =
+    loginSettings && typeof loginSettings.message === "string"
+      ? loginSettings.message
+      : "";
+  const loginImageUrl =
+    loginSettings && typeof loginSettings.image_url === "string"
+      ? loginSettings.image_url
+      : null;
 
   return (
     <main className="space-y-6">
+      <LoginSettingsManager
+        initialMessage={loginMessage}
+        initialImageUrl={loginImageUrl}
+      />
+
       <section className="rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
         <h2 className="text-lg font-semibold text-foreground">{t("createHackathon")}</h2>
 
@@ -79,46 +117,48 @@ export default async function AdminHackathonsPage() {
         </form>
       </section>
 
-      <section className="rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-foreground">{t("templates")}</h2>
+      {isSuperAdmin && (
+        <section className="rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-foreground">{t("templates")}</h2>
 
-        {templates.length === 0 ? (
-          <p className="mt-4 text-sm text-foreground/70">{t("none")}</p>
-        ) : (
-          <div className="mt-4 space-y-3">
-            {templates.map((template) => {
-              const deleteTemplateAction = deleteHackathon.bind(null, template.id);
+          {templates.length === 0 ? (
+            <p className="mt-4 text-sm text-foreground/70">{t("none")}</p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {templates.map((template) => {
+                const deleteTemplateAction = deleteTemplate.bind(null, template.id);
 
-              return (
-                <article
-                  key={template.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {template.title || t("untitledHackathon")}
-                    </p>
-                  </div>
-
-                  <form
-                    action={deleteTemplateAction}
-                    className="js-confirm-delete"
-                    data-confirm-message={t("confirmDelete")}
+                return (
+                  <article
+                    key={template.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3"
                   >
-                    <button
-                      type="submit"
-                      className="inline-flex items-center gap-1 rounded-lg border border-danger/40 px-3 py-2 text-xs font-medium text-danger hover:bg-danger/10"
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {template.title || t("untitledHackathon")}
+                      </p>
+                    </div>
+
+                    <form
+                      action={deleteTemplateAction}
+                      className="js-confirm-delete"
+                      data-confirm-message={t("confirmDelete")}
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      {t("delete")}
-                    </button>
-                  </form>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center gap-1 rounded-lg border border-danger/40 px-3 py-2 text-xs font-medium text-danger hover:bg-danger/10"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {t("delete")}
+                      </button>
+                    </form>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {hackathons.length === 0 ? (
         <section className="rounded-xl border border-border bg-white p-6 text-sm text-foreground/70 shadow-sm">

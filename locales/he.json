@@ -28,9 +28,15 @@
   "redo": "בצע שוב",
   "login": "כניסה",
   "logout": "יציאה",
+  "loggingOut": "מתנתק...",
   "loginWithGoogle": "כניסה עם Google",
   "loginPageTitle": "כניסה למערכת",
   "loginPageSubtitle": "כניסה מותרת למשתתפים מורשים בלבד",
+  "loginHelpText": "אם אינך מצליח.ה להתחבר, יש לפנות למנטורים",
+  "loginPageManagement": "ניהול עמוד ההתחברות",
+  "loginMessageLabel": "הודעת התחברות",
+  "loginImageLabel": "תמונת עמוד התחברות",
+  "saveLoginSettings": "שמירת הגדרות התחברות",
   "accessDenied": "הגישה נדחתה",
   "groupName": "שם הקבוצה",
   "groupMembers": "חברות וחברי הקבוצה",
@@ -265,5 +271,6 @@
   "radiusTopLeft": "רדיוס שמאלי עליון",
   "radiusBottomRight": "רדיוס ימני תחתון",
   "radiusBottomLeft": "רדיוס שמאלי תחתון",
-  "enableCustomWrapper": "הפעלת עיצוב מעטפת"
+  "enableCustomWrapper": "הפעלת עיצוב מעטפת",
+  "notAssignedToGroup": "לא שובצת לקבוצה עדיין"
 }

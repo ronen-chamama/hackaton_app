@@ -5,6 +5,7 @@ import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
 
 type JsonObject = Record<string, unknown>;
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 function cloneJsonObject(value: unknown): JsonObject {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -46,6 +47,27 @@ function revalidateAdmin() {
 
 function revalidateBuilder(hackathonId: string) {
   revalidatePath(`/admin/builder/${hackathonId}`);
+}
+
+async function assertSuperAdmin(actionClient: SupabaseServerClient) {
+  const {
+    data: { user },
+    error: authError,
+  } = await actionClient.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error("Unauthorized: Super Admin only");
+  }
+
+  const { data: actor, error: actorError } = await actionClient
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (actorError || !actor || actor.role !== "super-admin") {
+    throw new Error("Unauthorized: Super Admin only");
+  }
 }
 
 export async function createHackathon(formData: FormData) {
@@ -147,11 +169,36 @@ export async function deleteHackathon(id: string) {
   }
 
   const actionClient = await createClient();
-  await actionClient.from("hackathons").delete().eq("id", id);
+  await actionClient
+    .from("hackathons")
+    .delete()
+    .eq("id", id)
+    .eq("is_template", false);
 
   revalidateAdmin();
   revalidateBuilder(id);
   revalidatePath("/");
+}
+
+export async function deleteTemplate(id: string) {
+  if (!id) {
+    return;
+  }
+
+  const actionClient = await createClient();
+  await assertSuperAdmin(actionClient);
+
+  const { error } = await actionClient
+    .from("hackathons")
+    .delete()
+    .eq("id", id)
+    .eq("is_template", true);
+
+  if (error) {
+    throw new Error(error.message || "Failed to delete template");
+  }
+
+  revalidateAdmin();
 }
 
 export async function toggleActive(id: string) {

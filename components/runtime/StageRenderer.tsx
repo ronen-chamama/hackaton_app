@@ -45,20 +45,6 @@ const PRINT_TAGS = [
   "printAnalysis",
 ] as const;
 
-function getBorderClass(border?: string): string {
-  if (border === "dashed") return "border border-dashed border-border";
-  if (border === "solid") return "border border-solid border-border";
-  if (border === "none") return "border border-transparent";
-  return "";
-}
-
-function getShadowClass(shadow?: string): string {
-  if (shadow === "sm") return "shadow-sm";
-  if (shadow === "md") return "shadow-md";
-  if (shadow === "lg") return "shadow-lg";
-  return "";
-}
-
 function normalizeBorderWidth(value: unknown): string | undefined {
   if (typeof value === "number") {
     return value > 0 ? `${value}px` : undefined;
@@ -335,7 +321,7 @@ export function StageRenderer({
         </span>
       ) : null}
       {stageSettings.emojiIcon ? (
-        <span className="absolute left-2 top-1 text-3xl leading-none">
+        <span className="absolute left-2 top-1 z-30 text-3xl leading-none">
           {stageSettings.emojiIcon}
         </span>
       ) : null}
@@ -370,7 +356,7 @@ export function StageRenderer({
             </span>
           ) : null}
           {containerSettings.emojiIcon ? (
-            <span className="absolute left-2 top-1 text-2xl leading-none">
+            <span className="absolute left-2 top-1 z-30 text-2xl leading-none">
               {containerSettings.emojiIcon}
             </span>
           ) : null}
@@ -412,7 +398,7 @@ export function StageRenderer({
                     </span>
                   ) : null}
                   {rowSettings.emojiIcon ? (
-                    <span className="absolute left-2 top-1 text-2xl leading-none">
+                    <span className="absolute left-2 top-1 z-30 text-2xl leading-none">
                       {rowSettings.emojiIcon}
                     </span>
                   ) : null}
@@ -452,7 +438,7 @@ export function StageRenderer({
                       </span>
                     ) : null}
                     {columnSettings.emojiIcon ? (
-                      <span className="absolute left-2 top-1 text-2xl leading-none">
+                      <span className="absolute left-2 top-1 z-30 text-2xl leading-none">
                         {columnSettings.emojiIcon}
                       </span>
                     ) : null}
@@ -525,28 +511,7 @@ export function StageRenderer({
                   return (
                     <div
                       key={`${element.id}:${groupValues[element.id]?.updated_at ?? "base"}`}
-                      className={`relative overflow-visible rounded px-2 py-2 text-xs ${getBorderClass(
-                        border
-                      )} ${getShadowClass(shadow)}`}
-                      style={{
-                        color: textColor || undefined,
-                        backgroundColor: backgroundColor || undefined,
-                        borderStyle:
-                          border === "dashed" || border === "solid"
-                            ? border
-                            : border === "none"
-                              ? "solid"
-                              : typeof elementBorderWidth === "number"
-                                ? "solid"
-                                : undefined,
-                        borderWidth:
-                          typeof elementBorderWidth === "number"
-                            ? `${elementBorderWidth}px`
-                            : border && border !== "none"
-                              ? "1px"
-                            : undefined,
-                        borderColor: elementBorderColor || undefined,
-                      }}
+                      className="relative overflow-visible"
                     >
                       {badgeText ? (
                         <span
@@ -564,7 +529,7 @@ export function StageRenderer({
                         </span>
                       ) : null}
                       {emojiIcon ? (
-                        <span className="absolute left-2 top-1 text-2xl leading-none">
+                        <span className="absolute left-2 top-1 z-30 text-2xl leading-none">
                           {emojiIcon}
                         </span>
                       ) : null}
@@ -578,6 +543,14 @@ export function StageRenderer({
                         groupMembers={groupMembers}
                         groupName={groupName}
                         hackathonName={hackathonName}
+                        wrapperVisual={{
+                          textColor,
+                          backgroundColor,
+                          border,
+                          shadow,
+                          borderWidth: elementBorderWidth,
+                          borderColor: elementBorderColor,
+                        }}
                         themeMeta={{
                           elementIndex,
                           containerIndex,

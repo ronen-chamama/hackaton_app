@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { AlertElement } from "@/components/elements/display/AlertElement";
 import { CardBuilderElement } from "@/components/elements/complex/CardBuilderElement";
 import { InfoCardElement } from "@/components/elements/display/InfoCardElement";
@@ -30,6 +30,14 @@ interface ElementRendererProps {
   groupMembers?: string[];
   groupName?: string;
   hackathonName?: string;
+  wrapperVisual?: {
+    textColor?: string;
+    backgroundColor?: string;
+    border?: string;
+    shadow?: string;
+    borderWidth?: number;
+    borderColor?: string;
+  };
   themeMeta?: {
     elementIndex?: number;
     containerIndex?: number;
@@ -124,6 +132,7 @@ export function ElementRenderer({
   groupMembers = [],
   groupName = "",
   hackathonName = "",
+  wrapperVisual,
   themeMeta,
   onValueSaved,
 }: ElementRendererProps) {
@@ -410,6 +419,45 @@ export function ElementRenderer({
     return null;
   }
 
+  const hasExplicitBorderWidth =
+    typeof wrapperVisual?.borderWidth === "number" && wrapperVisual.borderWidth > 0;
+  const hasExplicitBorderStyle =
+    wrapperVisual?.border === "dashed" ||
+    wrapperVisual?.border === "solid" ||
+    wrapperVisual?.border === "none";
+
+  const wrapperStyle: CSSProperties = {
+    color: wrapperVisual?.textColor || undefined,
+    backgroundColor: wrapperVisual?.backgroundColor || undefined,
+    borderColor: wrapperVisual?.borderColor || undefined,
+    borderStyle:
+      wrapperVisual?.border === "dashed" || wrapperVisual?.border === "solid"
+        ? wrapperVisual.border
+        : wrapperVisual?.border === "none"
+          ? "none"
+          : hasExplicitBorderWidth
+            ? "solid"
+            : undefined,
+    borderWidth:
+      wrapperVisual?.border === "none"
+        ? 0
+        : hasExplicitBorderWidth
+          ? `${wrapperVisual.borderWidth}px`
+          : hasExplicitBorderStyle
+            ? "1px"
+            : undefined,
+    boxShadow:
+      wrapperVisual?.shadow === "sm"
+        ? "0 1px 2px 0 rgb(0 0 0 / 0.05)"
+        : wrapperVisual?.shadow === "md"
+          ? "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)"
+          : wrapperVisual?.shadow === "lg"
+            ? "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
+            : wrapperVisual?.shadow === "none"
+              ? "none"
+              : undefined,
+  };
+
   return (
     <article
       data-theme-wrapper="element"
@@ -418,7 +466,8 @@ export function ElementRenderer({
       data-column-index={themeMeta?.columnIndex}
       data-social-time={themeMeta?.socialTime}
       data-print-tag={themeMeta?.printTag}
-      className="relative overflow-visible"
+      className="relative overflow-visible rounded p-4"
+      style={wrapperStyle}
     >
       {content}
     </article>

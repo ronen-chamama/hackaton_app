@@ -8,6 +8,7 @@ import { StageRenderer } from "@/components/runtime/StageRenderer";
 import { t } from "@/lib/i18n";
 import { subscribeToGroupValues } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
+import { resolveEnabledThemeName } from "@/lib/themes";
 import type { GroupValue, GroupValueMap, Hackathon } from "@/lib/types";
 
 function toGroupValueMap(rows: GroupValue[]): GroupValueMap {
@@ -33,6 +34,7 @@ export default function StudentRuntimePage() {
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [groupValues, setGroupValues] = useState<GroupValueMap>({});
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  const [isUnassignedToGroup, setIsUnassignedToGroup] = useState(false);
 
   // ---------------------------------------------------------------------------
   // Group name save — called by RuntimeHeader after its 600 ms debounce.
@@ -64,6 +66,7 @@ export default function StudentRuntimePage() {
       try {
         setIsLoading(true);
         setHasError(false);
+        setIsUnassignedToGroup(false);
 
         const {
           data: { user },
@@ -87,11 +90,23 @@ export default function StudentRuntimePage() {
 
         const userGroupId = (appUser?.group_id as string | null) ?? null;
         const userRole = (appUser?.role as string | null) ?? "user";
+        const isPrivilegedUser = userRole === "admin" || userRole === "super-admin";
         const effectiveGroupId =
-          userRole === "admin" && inspectGroupId ? inspectGroupId : userGroupId;
+          isPrivilegedUser && inspectGroupId ? inspectGroupId : userGroupId;
 
-        if (!effectiveGroupId && !previewHackathonId && userRole !== "admin") {
-          throw new Error("Missing group_id");
+        if (!effectiveGroupId && !previewHackathonId && !isPrivilegedUser) {
+          if (cancelled) {
+            return;
+          }
+
+          setGroupId(null);
+          setGroupName("");
+          setGroupMembers([]);
+          setGroupValues({});
+          setActiveHackathon(null);
+          setCurrentStageIndex(0);
+          setIsUnassignedToGroup(true);
+          return;
         }
 
         let hackathonQuery = supabase
@@ -115,15 +130,10 @@ export default function StudentRuntimePage() {
         let nextGroupMembers: string[] = [];
 
         if (effectiveGroupId) {
-          const [{ data: groupRow }, { data: usersRows }, { data: invitesRows }] = await Promise.all([
+          const [{ data: groupRow }, { data: usersRows }] = await Promise.all([
             supabase.from("groups").select("id, name").eq("id", effectiveGroupId).maybeSingle(),
             supabase
               .from("users")
-              .select("name")
-              .eq("group_id", effectiveGroupId)
-              .order("name"),
-            supabase
-              .from("student_invites")
               .select("name")
               .eq("group_id", effectiveGroupId)
               .order("name"),
@@ -139,12 +149,7 @@ export default function StudentRuntimePage() {
           const namesFromUsers = ((usersRows as Array<{ name: string | null }> | null) ?? [])
             .map((row) => (typeof row.name === "string" ? row.name.trim() : ""))
             .filter(Boolean);
-
-          const namesFromInvites = ((invitesRows as Array<{ name: string | null }> | null) ?? [])
-            .map((row) => (typeof row.name === "string" ? row.name.trim() : ""))
-            .filter(Boolean);
-
-          nextGroupMembers = Array.from(new Set([...namesFromUsers, ...namesFromInvites]));
+          nextGroupMembers = Array.from(new Set(namesFromUsers));
         }
 
         if (cancelled) {
@@ -258,6 +263,16 @@ export default function StudentRuntimePage() {
     );
   }
 
+  if (isUnassignedToGroup) {
+    return (
+      <main className="flex min-h-full flex-1 items-center justify-center p-8">
+        <div className="max-w-xl rounded-xl border border-border bg-surface-raised p-6 text-center shadow-sm">
+          <p className="text-lg font-semibold text-foreground">{t("notAssignedToGroup")}</p>
+        </div>
+      </main>
+    );
+  }
+
   if (!activeHackathon) {
     return (
       <main className="flex min-h-full flex-1 items-center justify-center p-8">
@@ -268,7 +283,11 @@ export default function StudentRuntimePage() {
     );
   }
 
-  const themeName = (activeHackathon.definition.themeName ?? "simple") as string;
+  const themeName = resolveEnabledThemeName(
+    typeof activeHackathon.definition?.themeName === "string"
+      ? activeHackathon.definition.themeName
+      : undefined
+  );
 
   return (
     <main data-theme={themeName} className="min-h-full flex-1">

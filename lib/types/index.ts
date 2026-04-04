@@ -4,7 +4,7 @@
 // used by both the renderer and the builder.
 // ---------------------------------------------------------------------------
 
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "admin" | "super-admin";
 
 export interface AppUser {
   id: string;

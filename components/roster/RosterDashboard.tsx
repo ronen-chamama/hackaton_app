@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { type ReactNode, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -14,26 +14,19 @@ import {
 import { t } from "@/lib/i18n";
 import {
   exportGroupsForPrintData,
-  exportStudentInvitesCsvData,
+  exportUsersCsvData,
   importRosterCsv,
   resetRosterData,
   createHackathonGroup,
   deleteHackathonGroup,
-  updateInviteAssignment,
-  updateUserAssignment,
+  updateStudentAssignment,
   type AssignmentPayload,
+  type AssignmentSource,
 } from "@/lib/actions/roster";
 
-type RosterUser = {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  group_id: string | null;
-  home_group?: string | null;
-};
-
-type RosterInvite = {
+type RosterStudent = {
+  source: AssignmentSource;
+  id?: string;
   email: string;
   name: string;
   role?: string | null;
@@ -46,14 +39,17 @@ type HackathonGroup = {
   name: string;
 };
 
-type DragMeta =
-  | { kind: "user"; id: string }
-  | { kind: "invite"; email: string };
+type DragMeta = {
+  kind: "student";
+  source: AssignmentSource;
+  id?: string;
+  email: string;
+  key: string;
+};
 
 interface RosterDashboardProps {
   initialGroups: HackathonGroup[];
-  initialUsers: RosterUser[];
-  initialInvites: RosterInvite[];
+  initialStudents: RosterStudent[];
   activeHackathonId: string | null;
 }
 
@@ -65,6 +61,15 @@ function compactLabel(name: string, homeGroup: string | null | undefined): strin
   const left = name.trim() || "-";
   const right = homeGroup?.trim();
   return right ? `${left} | ${right}` : left;
+}
+
+function studentKey(student: RosterStudent): string {
+  const identifier = student.id?.trim() || student.email.trim().toLowerCase();
+  return `${student.source}:${identifier}`;
+}
+
+function roleOf(student: RosterStudent): string {
+  return student.role ?? "user";
 }
 
 function dropTargetFromId(overId: string | null): AssignmentPayload {
@@ -105,17 +110,22 @@ function assignmentForLocalState(target: AssignmentPayload): {
 function DraggablePersonCard({
   dragMeta,
   label,
+  source,
   dimmed,
 }: {
   dragMeta: DragMeta;
   label: string;
+  source: AssignmentSource;
   dimmed?: boolean;
 }) {
-  const dragId = dragMeta.kind === "user" ? `user:${dragMeta.id}` : `invite:${dragMeta.email}`;
+  const dragId = `student:${dragMeta.key}`;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: dragId,
     data: dragMeta,
   });
+
+  const sourceDotClass =
+    source === "user" ? "bg-emerald-500" : "border border-slate-400 bg-transparent";
 
   return (
     <article
@@ -133,7 +143,10 @@ function DraggablePersonCard({
           : undefined
       }
     >
-      {label}
+      <div className="flex items-center gap-2">
+        <span className={`h-2 w-2 rounded-full ${sourceDotClass}`} />
+        <span>{label}</span>
+      </div>
     </article>
   );
 }
@@ -194,132 +207,93 @@ function PoolSidebar({
 
 export function RosterDashboard({
   initialGroups,
-  initialUsers,
-  initialInvites,
+  initialStudents,
   activeHackathonId,
 }: RosterDashboardProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [groups, setGroups] = useState(initialGroups);
-  const [users, setUsers] = useState(initialUsers);
-  const [invites, setInvites] = useState(initialInvites);
+  const [students, setStudents] = useState(initialStudents);
   const [activeDrag, setActiveDrag] = useState<DragMeta | null>(null);
   const [selectedHomeGroup, setSelectedHomeGroup] = useState<string>("all");
   const [isPending, startTransition] = useTransition();
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  const poolUsers = users.filter((user) => user.role !== "admin" && user.role !== "absent" && !user.group_id);
-  const poolInvites = invites.filter(
-    (invite) => (invite.role ?? "user") !== "admin" && (invite.role ?? "user") !== "absent" && !invite.group_id
+  const poolStudents = useMemo(
+    () =>
+      students.filter((student) => {
+        const role = roleOf(student);
+        return role !== "admin" && role !== "super-admin" && role !== "absent" && !student.group_id;
+      }),
+    [students]
   );
 
   const homeGroupOptions = useMemo(() => {
     const values = new Set<string>();
-    for (const user of poolUsers) {
-      const home = user.home_group?.trim();
-      if (home) values.add(home);
-    }
-    for (const invite of poolInvites) {
-      const home = invite.home_group?.trim();
+    for (const student of poolStudents) {
+      const home = student.home_group?.trim();
       if (home) values.add(home);
     }
     return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [poolInvites, poolUsers]);
+  }, [poolStudents]);
 
-  const filteredPoolUsers = useMemo(() => {
+  const filteredPoolStudents = useMemo(() => {
     if (selectedHomeGroup === "all") {
-      return poolUsers;
+      return poolStudents;
     }
-    return poolUsers.filter((user) => normalizeHomeGroup(user.home_group) === selectedHomeGroup);
-  }, [poolUsers, selectedHomeGroup]);
-
-  const filteredPoolInvites = useMemo(() => {
-    if (selectedHomeGroup === "all") {
-      return poolInvites;
-    }
-    return poolInvites.filter(
-      (invite) => normalizeHomeGroup(invite.home_group) === selectedHomeGroup
+    return poolStudents.filter(
+      (student) => normalizeHomeGroup(student.home_group) === selectedHomeGroup
     );
-  }, [poolInvites, selectedHomeGroup]);
+  }, [poolStudents, selectedHomeGroup]);
 
   const groupedPool = useMemo(() => {
-    const bucket = new Map<string, Array<{ kind: "user" | "invite"; key: string }>>();
+    const bucket = new Map<string, string[]>();
 
-    for (const user of filteredPoolUsers) {
-      const home = normalizeHomeGroup(user.home_group);
+    for (const student of filteredPoolStudents) {
+      const home = normalizeHomeGroup(student.home_group);
       const list = bucket.get(home) ?? [];
-      list.push({ kind: "user", key: user.id });
-      bucket.set(home, list);
-    }
-
-    for (const invite of filteredPoolInvites) {
-      const home = normalizeHomeGroup(invite.home_group);
-      const list = bucket.get(home) ?? [];
-      list.push({ kind: "invite", key: invite.email });
+      list.push(studentKey(student));
       bucket.set(home, list);
     }
 
     return Array.from(bucket.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filteredPoolInvites, filteredPoolUsers]);
+  }, [filteredPoolStudents]);
 
-  const adminUsers = users.filter((user) => user.role === "admin");
-  const adminInvites = invites.filter((invite) => (invite.role ?? "user") === "admin");
-  const absentUsers = users.filter((user) => user.role === "absent");
-  const absentInvites = invites.filter((invite) => (invite.role ?? "user") === "absent");
+  const adminStudents = students.filter((student) => roleOf(student) === "admin");
+  const absentStudents = students.filter((student) => roleOf(student) === "absent");
 
-  const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users]);
-  const inviteByEmail = useMemo(
-    () => new Map(invites.map((invite) => [invite.email.toLowerCase(), invite])),
-    [invites]
+  const studentsByKey = useMemo(
+    () => new Map(students.map((student) => [studentKey(student), student])),
+    [students]
   );
 
   const mutateLocalAssignment = (meta: DragMeta, target: AssignmentPayload) => {
     const next = assignmentForLocalState(target);
-
-    if (meta.kind === "user") {
-      setUsers((prev) =>
-        prev.map((user) =>
-          user.id === meta.id
-            ? {
-                ...user,
-                role: next.role,
-                group_id: next.group_id,
-              }
-            : user
-        )
-      );
-      return;
-    }
-
-    setInvites((prev) =>
-      prev.map((invite) =>
-        invite.email.toLowerCase() === meta.email.toLowerCase()
-          ? {
-              ...invite,
-              role: next.role,
-              group_id: next.group_id,
-            }
-          : invite
-      )
+    setStudents((prev) =>
+      prev.map((student) => {
+        if (studentKey(student) !== meta.key) {
+          return student;
+        }
+        return {
+          ...student,
+          role: next.role,
+          group_id: next.group_id,
+        };
+      })
     );
   };
 
   const persistAssignment = async (meta: DragMeta, target: AssignmentPayload) => {
-    if (meta.kind === "user") {
-      const result = await updateUserAssignment(meta.id, target);
-      if (!result.ok) {
-        throw new Error(result.error);
-      }
-      return;
-    }
-
-    const result = await updateInviteAssignment(meta.email, target);
+    const result = await updateStudentAssignment(
+      meta.source,
+      { id: meta.id ?? null, email: meta.email },
+      target
+    );
     if (!result.ok) {
       throw new Error(result.error);
     }
@@ -335,16 +309,13 @@ export function RosterDashboard({
       return;
     }
 
-    const previousUsers = users;
-    const previousInvites = invites;
-
+    const previousStudents = students;
     mutateLocalAssignment(activeData, target);
 
     startTransition(() => {
       void persistAssignment(activeData, target).catch((error) => {
         console.error("Failed to update assignment:", error);
-        setUsers(previousUsers);
-        setInvites(previousInvites);
+        setStudents(previousStudents);
       });
     });
   };
@@ -371,12 +342,9 @@ export function RosterDashboard({
       void deleteHackathonGroup(groupId)
         .then(() => {
           setGroups((prev) => prev.filter((group) => group.id !== groupId));
-          setUsers((prev) =>
-            prev.map((user) => (user.group_id === groupId ? { ...user, group_id: null } : user))
-          );
-          setInvites((prev) =>
-            prev.map((invite) =>
-              invite.group_id === groupId ? { ...invite, group_id: null } : invite
+          setStudents((prev) =>
+            prev.map((student) =>
+              student.group_id === groupId ? { ...student, group_id: null } : student
             )
           );
         })
@@ -408,7 +376,7 @@ export function RosterDashboard({
 
   const handleExportCsv = () => {
     startTransition(() => {
-      void exportStudentInvitesCsvData()
+      void exportUsersCsvData()
         .then((result) => {
           if (!result.ok) {
             window.alert(result.error ?? "Export failed");
@@ -435,7 +403,7 @@ export function RosterDashboard({
           const url = URL.createObjectURL(blob);
           const anchor = document.createElement("a");
           anchor.href = url;
-          anchor.download = "student_invites.csv";
+          anchor.download = "users.csv";
           document.body.appendChild(anchor);
           anchor.click();
           anchor.remove();
@@ -525,52 +493,47 @@ export function RosterDashboard({
     >
       <div className="flex items-start gap-6" dir="rtl">
         <PoolSidebar title={t("unassigned")}>
-            <div className="rounded-md border border-border bg-background p-2">
-              <select
-                value={selectedHomeGroup}
-                onChange={(event) => setSelectedHomeGroup(event.target.value)}
-                className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
-              >
-                <option value="all">{t("all")}</option>
-                {homeGroupOptions.map((homeGroup) => (
-                  <option key={homeGroup} value={homeGroup}>
-                    {homeGroup}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {groupedPool.map(([homeGroup, members]) => (
-              <div key={homeGroup} className="space-y-1.5 rounded-md bg-background/70 p-2">
-                <p className="text-[11px] font-semibold text-foreground/80">
-                  {t("homeGroup")}: {homeGroup}
-                </p>
-                <div className="space-y-1.5">
-                  {members.map((member) => {
-                    if (member.kind === "user") {
-                      const user = userById.get(member.key);
-                      if (!user) return null;
-                      return (
-                        <DraggablePersonCard
-                          key={`pool-u:${user.id}`}
-                          dragMeta={{ kind: "user", id: user.id }}
-                          label={compactLabel(user.name || user.email, user.home_group)}
-                        />
-                      );
-                    }
-
-                    const invite = inviteByEmail.get(member.key.toLowerCase());
-                    if (!invite) return null;
-                    return (
-                      <DraggablePersonCard
-                        key={`pool-i:${invite.email}`}
-                        dragMeta={{ kind: "invite", email: invite.email }}
-                        label={compactLabel(invite.name || invite.email, invite.home_group)}
-                      />
-                    );
-                  })}
-                </div>
+          <div className="rounded-md border border-border bg-background p-2">
+            <select
+              value={selectedHomeGroup}
+              onChange={(event) => setSelectedHomeGroup(event.target.value)}
+              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs"
+            >
+              <option value="all">{t("all")}</option>
+              {homeGroupOptions.map((homeGroup) => (
+                <option key={homeGroup} value={homeGroup}>
+                  {homeGroup}
+                </option>
+              ))}
+            </select>
+          </div>
+          {groupedPool.map(([homeGroup, memberKeys]) => (
+            <div key={homeGroup} className="space-y-1.5 rounded-md bg-background/70 p-2">
+              <p className="text-[11px] font-semibold text-foreground/80">
+                {t("homeGroup")}: {homeGroup}
+              </p>
+              <div className="space-y-1.5">
+                {memberKeys.map((key) => {
+                  const student = studentsByKey.get(key);
+                  if (!student) return null;
+                  return (
+                    <DraggablePersonCard
+                      key={`pool:${key}`}
+                      source={student.source}
+                      dragMeta={{
+                        kind: "student",
+                        source: student.source,
+                        id: student.id,
+                        email: student.email,
+                        key,
+                      }}
+                      label={compactLabel(student.name || student.email, student.home_group)}
+                    />
+                  );
+                })}
               </div>
-            ))}
+            </div>
+          ))}
         </PoolSidebar>
 
         <div className="min-w-0 flex-1 space-y-4">
@@ -666,88 +629,90 @@ export function RosterDashboard({
                   </div>
                 }
               >
-                {users
-                  .filter((user) => user.group_id === group.id)
-                  .map((user) => (
-                    <DraggablePersonCard
-                      key={`u:${user.id}`}
-                      dragMeta={{ kind: "user", id: user.id }}
-                      label={compactLabel(user.name || user.email, user.home_group)}
-                    />
-                  ))}
-
-                {invites
-                  .filter((invite) => invite.group_id === group.id)
-                  .map((invite) => (
-                    <DraggablePersonCard
-                      key={`i:${invite.email}`}
-                      dragMeta={{ kind: "invite", email: invite.email }}
-                      label={compactLabel(invite.name || invite.email, invite.home_group)}
-                    />
-                  ))}
+                {students
+                  .filter((student) => student.group_id === group.id)
+                  .map((student) => {
+                    const key = studentKey(student);
+                    return (
+                      <DraggablePersonCard
+                        key={`group:${key}`}
+                        source={student.source}
+                        dragMeta={{
+                          kind: "student",
+                          source: student.source,
+                          id: student.id,
+                          email: student.email,
+                          key,
+                        }}
+                        label={compactLabel(student.name || student.email, student.home_group)}
+                      />
+                    );
+                  })}
               </DroppableZone>
             ))}
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <DroppableZone id="zone:admin" title={t("admins")}>
-              {adminUsers.map((user) => (
-                <DraggablePersonCard
-                  key={`admin-u:${user.id}`}
-                  dragMeta={{ kind: "user", id: user.id }}
-                  label={compactLabel(user.name || user.email, user.home_group)}
-                />
-              ))}
-              {adminInvites.map((invite) => (
-                <DraggablePersonCard
-                  key={`admin-i:${invite.email}`}
-                  dragMeta={{ kind: "invite", email: invite.email }}
-                  label={compactLabel(invite.name || invite.email, invite.home_group)}
-                />
-              ))}
+              {adminStudents.map((student) => {
+                const key = studentKey(student);
+                return (
+                  <DraggablePersonCard
+                    key={`admin:${key}`}
+                    source={student.source}
+                    dragMeta={{
+                      kind: "student",
+                      source: student.source,
+                      id: student.id,
+                      email: student.email,
+                      key,
+                    }}
+                    label={compactLabel(student.name || student.email, student.home_group)}
+                  />
+                );
+              })}
             </DroppableZone>
 
             <DroppableZone id="zone:absent" title={t("absent")}>
-              {absentUsers.map((user) => (
-                <DraggablePersonCard
-                  key={`absent-u:${user.id}`}
-                  dragMeta={{ kind: "user", id: user.id }}
-                  label={compactLabel(user.name || user.email, user.home_group)}
-                />
-              ))}
-              {absentInvites.map((invite) => (
-                <DraggablePersonCard
-                  key={`absent-i:${invite.email}`}
-                  dragMeta={{ kind: "invite", email: invite.email }}
-                  label={compactLabel(invite.name || invite.email, invite.home_group)}
-                />
-              ))}
+              {absentStudents.map((student) => {
+                const key = studentKey(student);
+                return (
+                  <DraggablePersonCard
+                    key={`absent:${key}`}
+                    source={student.source}
+                    dragMeta={{
+                      kind: "student",
+                      source: student.source,
+                      id: student.id,
+                      email: student.email,
+                      key,
+                    }}
+                    label={compactLabel(student.name || student.email, student.home_group)}
+                  />
+                );
+              })}
             </DroppableZone>
           </div>
         </div>
       </div>
 
       <DragOverlay>
-        {activeDrag?.kind === "user" ? (
-          <DraggablePersonCard
-            dragMeta={activeDrag}
-            label={compactLabel(
-              userById.get(activeDrag.id)?.name || userById.get(activeDrag.id)?.email || "",
-              userById.get(activeDrag.id)?.home_group
-            )}
-            dimmed
-          />
-        ) : activeDrag?.kind === "invite" ? (
-          <DraggablePersonCard
-            dragMeta={activeDrag}
-            label={compactLabel(
-              inviteByEmail.get(activeDrag.email.toLowerCase())?.name ||
-                inviteByEmail.get(activeDrag.email.toLowerCase())?.email ||
-                "",
-              inviteByEmail.get(activeDrag.email.toLowerCase())?.home_group
-            )}
-            dimmed
-          />
+        {activeDrag ? (
+          (() => {
+            const student = studentsByKey.get(activeDrag.key);
+            if (!student) {
+              return null;
+            }
+
+            return (
+              <DraggablePersonCard
+                dragMeta={activeDrag}
+                source={student.source}
+                label={compactLabel(student.name || student.email, student.home_group)}
+                dimmed
+              />
+            );
+          })()
         ) : null}
       </DragOverlay>
     </DndContext>

@@ -25,6 +25,19 @@ export const THEME_NAMES: ThemeName[] = [
   "social",
 ];
 
+/**
+ * Themes currently exposed in selector UIs.
+ * Unstable themes stay in the registry but are hidden from selection.
+ */
+export const ENABLED_THEME_NAMES = [
+  "simple",
+  "pleasant",
+  "formal",
+  "playful",
+] as const satisfies readonly ThemeName[];
+
+export type EnabledThemeName = (typeof ENABLED_THEME_NAMES)[number];
+
 // ---------------------------------------------------------------------------
 // Component-level style tokens
 // These JS objects are available to components that need theme-specific
@@ -336,4 +349,23 @@ export function getThemeConfig(theme: string | undefined): ThemeConfig {
     ? (theme as ThemeName)
     : "simple";
   return THEME_REGISTRY[name];
+}
+
+/**
+ * Resolves a persisted theme to one that is currently enabled for runtime/UI.
+ * Falls back to a stable default when the stored theme is hidden/disabled.
+ */
+export function resolveEnabledThemeName(
+  theme: string | undefined,
+  fallback: EnabledThemeName = "simple"
+): EnabledThemeName {
+  return ENABLED_THEME_NAMES.includes(theme as EnabledThemeName)
+    ? (theme as EnabledThemeName)
+    : fallback;
+}
+
+export function isEnabledThemeName(
+  theme: string | undefined
+): theme is EnabledThemeName {
+  return ENABLED_THEME_NAMES.includes(theme as EnabledThemeName);
 }

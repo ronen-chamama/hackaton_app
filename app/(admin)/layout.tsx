@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LogoutButton } from "@/components/LogoutButton";
 import { t } from "@/lib/i18n";
 
 export default function AdminLayout({
@@ -26,6 +27,7 @@ export default function AdminLayout({
             >
               {t("groups")}
             </Link>
+            <LogoutButton />
           </nav>
         </div>
       </header>

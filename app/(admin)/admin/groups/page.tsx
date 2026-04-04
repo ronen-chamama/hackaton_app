@@ -1,6 +1,5 @@
-﻿import { t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
-import { importRosterCsv } from "@/lib/actions/roster";
 import { RosterDashboard } from "@/components/roster/RosterDashboard";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +9,7 @@ interface GroupsPageProps {
 }
 
 export default async function AdminGroupsPage({ searchParams }: GroupsPageProps) {
-  const { imported } = await searchParams;
+  await searchParams;
   const supabase = await createClient();
 
   const { data: activeHackathon } = await supabase
@@ -25,38 +24,27 @@ export default async function AdminGroupsPage({ searchParams }: GroupsPageProps)
     groupsQuery = groupsQuery.eq("hackathon_id", activeHackathon.id);
   }
 
-  const [{ data: groups }, { data: users }, { data: invites }] = await Promise.all([
+  const [{ data: groups }, { data: users }] = await Promise.all([
     groupsQuery,
-    supabase.from("users").select("*"),
-    supabase.from("student_invites").select("*"),
+    supabase
+      .from("users")
+      .select("id, email, name, role, group_id, home_group")
+      .neq("role", "super-admin"),
   ]);
 
   const mappedGroups = (groups ?? []).map((group) => {
     const row = group as Record<string, unknown>;
     return {
       id: String(row.id),
-      name:
-        (typeof row.title === "string" && row.title) ||
-        (typeof row.name === "string" && row.name) ||
-        t("groupName"),
+      name: (typeof row.name === "string" && row.name) || t("groupName"),
     };
   });
 
-  const mappedUsers = (users ?? []).map((user) => {
+  const studentsFromUsers = (users ?? []).map((user) => {
     const row = user as Record<string, unknown>;
     return {
+      source: "user" as const,
       id: String(row.id),
-      email: typeof row.email === "string" ? row.email : "",
-      name: typeof row.name === "string" ? row.name : "",
-      role: typeof row.role === "string" ? row.role : "user",
-      group_id: typeof row.group_id === "string" ? row.group_id : null,
-      home_group: typeof row.home_group === "string" ? row.home_group : null,
-    };
-  });
-
-  const mappedInvites = (invites ?? []).map((invite) => {
-    const row = invite as Record<string, unknown>;
-    return {
       email: typeof row.email === "string" ? row.email : "",
       name: typeof row.name === "string" ? row.name : "",
       role: typeof row.role === "string" ? row.role : "user",
@@ -67,12 +55,9 @@ export default async function AdminGroupsPage({ searchParams }: GroupsPageProps)
 
   return (
     <main className="space-y-4">
-      
-
       <RosterDashboard
         initialGroups={mappedGroups}
-        initialUsers={mappedUsers}
-        initialInvites={mappedInvites}
+        initialStudents={studentsFromUsers}
         activeHackathonId={(activeHackathon?.id as string | null) ?? null}
       />
     </main>

@@ -17,7 +17,7 @@ import { BuilderSidebar } from "@/components/builder/BuilderSidebar";
 import { saveAsTemplate, updateHackathonSettings } from "@/lib/actions/hackathon";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
-import { THEME_NAMES, type ThemeName } from "@/lib/themes";
+import { isEnabledThemeName, type ThemeName } from "@/lib/themes";
 import type {
   Column,
   Container,
@@ -1401,8 +1401,8 @@ export default function BuilderClient({
             onUpdateLayoutSettings={updateLayoutSettings}
             paletteTypes={PALETTE_TYPES}
             currentTheme={
-              THEME_NAMES.includes(draft.themeName as ThemeName)
-                ? (draft.themeName as ThemeName)
+              isEnabledThemeName(draft.themeName)
+                ? draft.themeName
                 : "simple"
             }
             onThemeChange={changeTheme}

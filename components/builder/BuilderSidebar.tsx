@@ -24,7 +24,7 @@ import {
   Type,
   Video,
 } from "lucide-react";
-import { THEME_NAMES, type ThemeName } from "@/lib/themes";
+import { ENABLED_THEME_NAMES, isEnabledThemeName, type ThemeName } from "@/lib/themes";
 import type { DictionaryKey } from "@/lib/i18n";
 import {
   asTagBorderStyle,
@@ -501,13 +501,13 @@ export function BuilderSidebar({
               value={currentTheme ?? "simple"}
               className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
               onChange={(e) => {
-                const next = e.target.value as ThemeName;
-                if (THEME_NAMES.includes(next)) {
+                const next = e.target.value;
+                if (isEnabledThemeName(next)) {
                   onThemeChange?.(next);
                 }
               }}
             >
-              {THEME_NAMES.map((name) => (
+              {ENABLED_THEME_NAMES.map((name) => (
                 <option key={name} value={name}>
                   {t(THEME_LABEL_KEYS[name])}
                 </option>

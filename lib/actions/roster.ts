@@ -7,13 +7,14 @@ import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
 
 export type AssignmentRole = "user" | "admin" | "absent";
+export type AssignmentSource = "user";
 
 export interface AssignmentPayload {
   target: "pool" | "admin" | "group" | "absent";
   groupId?: string | null;
 }
 
-function parseInviteCsv(csvText: string) {
+function parseRosterCsv(csvText: string) {
   const lines = csvText
     .replace(/^\uFEFF/, "")
     .split(/\r?\n/)
@@ -66,7 +67,7 @@ async function getAdminClient() {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (adminUser?.role !== "admin") {
+  if (adminUser?.role !== "admin" && adminUser?.role !== "super-admin") {
     redirect("/");
   }
 
@@ -93,17 +94,58 @@ export async function importRosterCsv(formData: FormData) {
   }
 
   const csvText = await file.text();
-  const parsed = parseInviteCsv(csvText);
+  const parsed = parseRosterCsv(csvText);
   if (!parsed.ok) {
     return { ok: false as const, error: parsed.error };
   }
   const rows = parsed.rows;
 
+  const normalizedEmails = rows.map((row) => row.email.toLowerCase());
+  const { data: existingRows, error: existingRowsError } = await supabase
+    .from("users")
+    .select("id, email, role, group_id")
+    .in("email", normalizedEmails);
+
+  if (existingRowsError) {
+    return { ok: false as const, error: existingRowsError.message };
+  }
+
+  const existingByEmail = new Map<string, Record<string, unknown>>();
+  for (const row of (existingRows ?? []) as Record<string, unknown>[]) {
+    const email = typeof row.email === "string" ? row.email.trim().toLowerCase() : "";
+    if (!email) continue;
+    existingByEmail.set(email, row);
+  }
+
   for (const row of rows) {
-    await supabase.from("student_invites").upsert(
-      { email: row.email, name: row.name, home_group: row.home_group },
-      { onConflict: "email" }
-    );
+    const email = row.email.trim().toLowerCase();
+    if (!email) {
+      continue;
+    }
+
+    const existing = existingByEmail.get(email);
+    const existingRole = typeof existing?.role === "string" ? existing.role : "";
+    const existingGroupId =
+      typeof existing?.group_id === "string" ? existing.group_id : null;
+    const existingId = typeof existing?.id === "string" ? existing.id : crypto.randomUUID();
+
+    const payload: Record<string, unknown> = {
+      id: existingId,
+      email,
+      name: row.name,
+      home_group: row.home_group || null,
+      role: existingRole === "admin" || existingRole === "super-admin" ? existingRole : "user",
+      group_id: existingGroupId,
+    };
+
+    const { error: upsertError } = await supabase
+      .from("users")
+      .upsert(payload, { onConflict: "email" });
+
+    if (upsertError) {
+      console.error("CSV users upsert failed", { email, error: upsertError });
+      return { ok: false as const, error: upsertError.message };
+    }
   }
 
   revalidatePath("/admin/groups");
@@ -162,7 +204,11 @@ export async function createHackathonGroup(groupPrefix?: string) {
   };
 }
 
-export async function updateUserAssignment(userId: string, payload: AssignmentPayload) {
+export async function updateStudentAssignment(
+  _source: AssignmentSource,
+  identifier: { email: string; id?: string | null },
+  payload: AssignmentPayload
+) {
   const supabase = await getAdminClient();
   let newRole: AssignmentRole = "user";
   let newGroupId: string | null = null;
@@ -175,11 +221,21 @@ export async function updateUserAssignment(userId: string, payload: AssignmentPa
     newGroupId = payload.groupId;
   }
 
-  const { error } = await supabase
+  const email = identifier.email.trim().toLowerCase();
+  if (!email) {
+    return { ok: false as const, error: "Missing email identifier" };
+  }
+
+  let updateQuery = supabase
     .from("users")
     .update({ role: newRole, group_id: newGroupId })
-    .eq("id", userId);
+    .ilike("email", email);
 
+  if (identifier.id) {
+    updateQuery = updateQuery.eq("id", identifier.id);
+  }
+
+  const { error } = await updateQuery;
   if (error) {
     console.error("Supabase Update Error:", error);
     return { ok: false as const, error: error.message };
@@ -189,26 +245,25 @@ export async function updateUserAssignment(userId: string, payload: AssignmentPa
   return { ok: true as const };
 }
 
-export async function updateInviteAssignment(email: string, payload: AssignmentPayload) {
+export async function updateUserAssignment(userId: string, payload: AssignmentPayload) {
   const supabase = await getAdminClient();
-  let newGroupId: string | null = null;
+  const { data: userRow, error: userLookupError } = await supabase
+    .from("users")
+    .select("email")
+    .eq("id", userId)
+    .maybeSingle();
 
-  if (payload.target === "group" && payload.groupId) {
-    newGroupId = payload.groupId;
+  if (userLookupError) {
+    console.error("Supabase Update Error:", userLookupError);
+    return { ok: false as const, error: userLookupError.message };
   }
 
-  const { error } = await supabase
-    .from("student_invites")
-    .update({ group_id: newGroupId })
-    .ilike("email", email.trim().toLowerCase());
-
-  if (error) {
-    console.error("Supabase Update Error:", error);
-    return { ok: false as const, error: error.message };
+  const userEmail = (userRow as Record<string, unknown> | null)?.email;
+  if (typeof userEmail !== "string" || !userEmail.trim()) {
+    return { ok: false as const, error: "User email not found for assignment" };
   }
 
-  revalidatePath("/admin/groups");
-  return { ok: true as const };
+  return updateStudentAssignment("user", { id: userId, email: userEmail }, payload);
 }
 
 export async function deleteHackathonGroup(groupId: string) {
@@ -224,16 +279,6 @@ export async function deleteHackathonGroup(groupId: string) {
     throw usersError;
   }
 
-  const { error: invitesError } = await supabase
-    .from("student_invites")
-    .update({ group_id: null })
-    .eq("group_id", groupId);
-
-  if (invitesError) {
-    console.error("deleteHackathonGroup invites unassign failed", { groupId, error: invitesError });
-    throw invitesError;
-  }
-
   const { error: deleteError } = await supabase.from("groups").delete().eq("id", groupId);
 
   if (deleteError) {
@@ -244,12 +289,14 @@ export async function deleteHackathonGroup(groupId: string) {
   revalidatePath("/admin/groups");
 }
 
-export async function exportStudentInvitesCsvData() {
+export async function exportUsersCsvData() {
   const supabase = await getAdminClient();
 
   const { data, error } = await supabase
-    .from("student_invites")
+    .from("users")
     .select("name, email, home_group, group_id")
+    .neq("role", "admin")
+    .neq("role", "super-admin")
     .order("name");
 
   if (error) {
@@ -295,28 +342,13 @@ export async function exportGroupsForPrintData() {
 
   const groupIds = (groups ?? []).map((group) => String((group as Record<string, unknown>).id));
 
-  const [{ data: users }, { data: invites }] = await Promise.all([
-    groupIds.length
-      ? supabase.from("users").select("name, group_id").in("group_id", groupIds)
-      : Promise.resolve({ data: [] as unknown[] }),
-    groupIds.length
-      ? supabase.from("student_invites").select("name, group_id").in("group_id", groupIds)
-      : Promise.resolve({ data: [] as unknown[] }),
-  ]);
+  const { data: users } = groupIds.length
+    ? await supabase.from("users").select("name, group_id").in("group_id", groupIds)
+    : { data: [] as unknown[] };
 
   const membersByGroup = new Map<string, string[]>();
 
   for (const row of (users ?? []) as Record<string, unknown>[]) {
-    const gid = typeof row.group_id === "string" ? row.group_id : null;
-    if (!gid) continue;
-    const name = typeof row.name === "string" && row.name.trim() ? row.name.trim() : "";
-    if (!name) continue;
-    const bucket = membersByGroup.get(gid) ?? [];
-    bucket.push(name);
-    membersByGroup.set(gid, bucket);
-  }
-
-  for (const row of (invites ?? []) as Record<string, unknown>[]) {
     const gid = typeof row.group_id === "string" ? row.group_id : null;
     if (!gid) continue;
     const name = typeof row.name === "string" && row.name.trim() ? row.name.trim() : "";
@@ -422,19 +454,11 @@ export async function exportGroupsForPrintData() {
 export async function resetRosterData() {
   const supabase = await getAdminClient();
 
-  const { error: invitesError } = await supabase
-    .from("student_invites")
-    .delete()
-    .neq("email", "");
-
-  if (invitesError) {
-    return { ok: false as const, error: invitesError.message };
-  }
-
   const { error: usersError } = await supabase
     .from("users")
     .update({ group_id: null, role: "user" })
-    .neq("role", "admin");
+    .neq("role", "admin")
+    .neq("role", "super-admin");
 
   if (usersError) {
     return { ok: false as const, error: usersError.message };

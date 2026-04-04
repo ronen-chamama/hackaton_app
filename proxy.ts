@@ -25,6 +25,10 @@ function isAdminPath(pathname: string): boolean {
   );
 }
 
+function canAccessAdmin(role: UserRole): boolean {
+  return role === "admin" || role === "super-admin";
+}
+
 // ---------------------------------------------------------------------------
 // Proxy (formerly middleware)
 // ---------------------------------------------------------------------------
@@ -74,18 +78,32 @@ export async function proxy(request: NextRequest) {
     .single();
 
   if (userError || !appUser) {
+    if (userError) {
+      console.error("[AUTH GATE ERROR] users lookup failed in proxy", {
+        userId: user.id,
+        error: userError,
+      });
+    } else {
+      console.error("[AUTH GATE ERROR] Authenticated user missing in users table", {
+        userId: user.id,
+      });
+    }
+
     // Authenticated with Google but not in the whitelist.
     // Sign out so they are not stuck in a broken session loop.
     await supabase.auth.signOut();
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("error", "unauthorized");
+    if (userError?.message) {
+      loginUrl.searchParams.set("error_description", userError.message);
+    }
     return NextResponse.redirect(loginUrl);
   }
 
   const role = appUser.role as UserRole;
 
   // Step 5: Admin-route guard.
-  if (isAdminPath(pathname) && role !== "admin") {
+  if (isAdminPath(pathname) && !canAccessAdmin(role)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
