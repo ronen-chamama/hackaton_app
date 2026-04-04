@@ -1,3 +1,5 @@
+import { InstructionModal } from "@/components/admin/InstructionModal";
+import { t } from "@/lib/i18n";
 import BuilderClient from "./BuilderClient";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -205,12 +207,19 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
   }
 
   return (
-    <BuilderClient
-      hackathonId={hackathon.id as string}
-      initialDefinition={sanitizeDefinition(hackathon.definition)}
-      initialTitle={(hackathon.title as string | null) ?? ""}
-      initialDescription={(hackathon.description as string | null) ?? ""}
-      initialIsTemplate={Boolean(hackathon.is_template)}
-    />
+    <>
+      <InstructionModal
+        storageKey="hide_editor_intro"
+        title={t("editorIntroTitle")}
+        content={t("editorIntroText")}
+      />
+      <BuilderClient
+        hackathonId={hackathon.id as string}
+        initialDefinition={sanitizeDefinition(hackathon.definition)}
+        initialTitle={(hackathon.title as string | null) ?? ""}
+        initialDescription={(hackathon.description as string | null) ?? ""}
+        initialIsTemplate={Boolean(hackathon.is_template)}
+      />
+    </>
   );
 }

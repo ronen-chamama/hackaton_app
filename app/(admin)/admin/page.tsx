@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import Script from "next/script";
 import { Copy, Edit3, Eye, Power, Trash2 } from "lucide-react";
+import { InstructionModal } from "@/components/admin/InstructionModal";
 import { LoginSettingsManager } from "@/components/admin/LoginSettingsManager";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
@@ -79,6 +80,11 @@ export default async function AdminHackathonsPage() {
 
   return (
     <main className="space-y-6">
+      <InstructionModal
+        storageKey="hide_hackathons_intro"
+        title={t("hackathonsIntroTitle")}
+        content={t("hackathonsIntroText")}
+      />
       <LoginSettingsManager
         initialMessage={loginMessage}
         initialImageUrl={loginImageUrl}

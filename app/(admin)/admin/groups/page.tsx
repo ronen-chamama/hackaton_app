@@ -1,3 +1,4 @@
+import { InstructionModal } from "@/components/admin/InstructionModal";
 import { t } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { RosterDashboard } from "@/components/roster/RosterDashboard";
@@ -50,6 +51,12 @@ export default async function AdminGroupsPage({ searchParams }: GroupsPageProps)
 
   return (
     <main className="space-y-4">
+      <InstructionModal
+        storageKey="hide_groups_intro"
+        title={t("groupsIntroTitle")}
+        content={t("groupsIntroText")}
+      />
+
       <RosterDashboard
         initialGroups={mappedGroups}
         initialStudents={studentsFromUsers}
