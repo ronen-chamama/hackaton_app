@@ -219,7 +219,10 @@ export function RosterDashboard({
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    setIsMounted(true);
+    const timeoutId = setTimeout(() => {
+      setIsMounted(true);
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));

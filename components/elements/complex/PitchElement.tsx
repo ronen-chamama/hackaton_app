@@ -75,8 +75,11 @@ export function PitchElement({
       timerRef.current = null;
     }
     lastSavedRef.current = incomingNormalized;
-    setDraft(value);
-  }, [incomingNormalized]);
+    const timeoutId = setTimeout(() => {
+      setDraft(value);
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [incomingNormalized, value]);
 
   const saveNow = async (nextValue: PitchValue) => {
     const nextNormalized = normalize(nextValue);

@@ -47,7 +47,10 @@ export function LongTextElement({
       timerRef.current = null;
     }
     lastSavedRef.current = value;
-    setDraft(value);
+    const timeoutId = setTimeout(() => {
+      setDraft(value);
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [value]);
 
   const saveNow = async (nextValue: string) => {

@@ -120,8 +120,11 @@ export function PositionPaperElement({
       timerRef.current = null;
     }
     lastSavedRef.current = incomingNormalized;
-    setDraft(value);
-  }, [incomingNormalized]);
+    const timeoutId = setTimeout(() => {
+      setDraft(value);
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [incomingNormalized, value]);
 
   const saveNow = async (nextValue: PositionPaperValue) => {
     const nextNormalized = normalize(nextValue);

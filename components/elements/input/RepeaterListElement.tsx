@@ -55,8 +55,11 @@ export function RepeaterListElement({
       timerRef.current = null;
     }
     lastSavedRef.current = incomingNormalized;
-    setDraft(value);
-  }, [incomingNormalized]);
+    const timeoutId = setTimeout(() => {
+      setDraft(value);
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [incomingNormalized, value]);
 
   const saveNow = async (nextValue: string[]) => {
     const nextNormalized = normalize(nextValue);

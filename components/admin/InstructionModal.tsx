@@ -18,14 +18,19 @@ export function InstructionModal({
   const [dontShowChecked, setDontShowChecked] = useState(false);
 
   useEffect(() => {
-    try {
-      const shouldHide = window.localStorage.getItem(storageKey);
-      if (shouldHide !== "true") {
+    const checkStorage = () => {
+      try {
+        const shouldHide = window.localStorage.getItem(storageKey);
+        if (shouldHide !== "true") {
+          setIsOpen(true);
+        }
+      } catch {
         setIsOpen(true);
       }
-    } catch {
-      setIsOpen(true);
-    }
+    };
+
+    const timeoutId = setTimeout(checkStorage, 0);
+    return () => clearTimeout(timeoutId);
   }, [storageKey]);
 
   const handleClose = () => {

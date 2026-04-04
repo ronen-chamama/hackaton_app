@@ -83,8 +83,11 @@ export function AdvancedRepeaterElement({
       timerRef.current = null;
     }
     lastSavedRef.current = incomingNormalized;
-    setDraft(incomingValue);
-  }, [incomingNormalized]);
+    const timeoutId = setTimeout(() => {
+      setDraft(incomingValue);
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [incomingNormalized, incomingValue]);
 
   const saveNow = async (nextValue: Array<Record<string, string>>) => {
     const nextNormalized = normalize(nextValue);
