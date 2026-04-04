@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type {
   RealtimeChannel,
@@ -21,7 +21,7 @@ function toGroupValueMap(rows: GroupValue[]): GroupValueMap {
   }, {});
 }
 
-export default function StudentRuntimePage() {
+function StudentRuntimeContent() {
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
   const previewHackathonId = (searchParams.get("preview") ?? "").trim();
@@ -504,5 +504,19 @@ export default function StudentRuntimePage() {
         </footer>
       </div>
     </main>
+  );
+}
+
+export default function StudentRuntimePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-full flex-1 items-center justify-center p-8">
+          <p className="text-sm text-foreground/70">{t("loading")}</p>
+        </main>
+      }
+    >
+      <StudentRuntimeContent />
+    </Suspense>
   );
 }
