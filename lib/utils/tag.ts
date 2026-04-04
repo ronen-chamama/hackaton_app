@@ -7,6 +7,9 @@ export type TagPosition =
   | "bottom-center";
 
 export type TagSize = "small" | "medium" | "large";
+export type TagBorderStyle = "solid" | "dashed" | "dotted";
+export type TagBorderWidth = "0px" | "1px" | "2px" | "4px";
+export type TagShape = "square" | "rounded" | "pill";
 
 export function asTagPosition(value: unknown): TagPosition {
   if (
@@ -26,6 +29,27 @@ export function asTagSize(value: unknown): TagSize {
     return value;
   }
   return "small";
+}
+
+export function asTagBorderStyle(value: unknown): TagBorderStyle {
+  if (value === "dashed" || value === "dotted") {
+    return value;
+  }
+  return "solid";
+}
+
+export function asTagBorderWidth(value: unknown): TagBorderWidth {
+  if (value === "1px" || value === "2px" || value === "4px") {
+    return value;
+  }
+  return "0px";
+}
+
+export function asTagShape(value: unknown): TagShape {
+  if (value === "square" || value === "pill") {
+    return value;
+  }
+  return "rounded";
 }
 
 export function getTagPositionClasses(position: TagPosition): string {
@@ -54,4 +78,37 @@ export function getTagSizeClasses(size: TagSize): string {
     default:
       return "text-xs px-2 py-1";
   }
+}
+
+export function getTagShapeClasses(shape: TagShape): string {
+  switch (shape) {
+    case "square":
+      return "rounded-none";
+    case "pill":
+      return "rounded-full px-4";
+    default:
+      return "rounded-md";
+  }
+}
+
+export function getTagInlineStyle({
+  backgroundColor,
+  textColor,
+  borderStyle,
+  borderWidth,
+}: {
+  backgroundColor?: string;
+  textColor?: string;
+  borderStyle?: unknown;
+  borderWidth?: unknown;
+}) {
+  const resolvedBorderWidth = asTagBorderWidth(borderWidth);
+  const hasBorder = resolvedBorderWidth !== "0px";
+
+  return {
+    backgroundColor: backgroundColor || undefined,
+    color: textColor || undefined,
+    borderWidth: hasBorder ? resolvedBorderWidth : undefined,
+    borderStyle: hasBorder ? asTagBorderStyle(borderStyle) : undefined,
+  };
 }

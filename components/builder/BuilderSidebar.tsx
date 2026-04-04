@@ -12,21 +12,27 @@ import {
   FlaskConical,
   Image as ImageIcon,
   LayoutGrid,
-  LayoutTemplate,
   List,
-  ListOrdered,
   ListChecks,
   Link as LinkIcon,
   Megaphone,
+  Plus,
   Sparkles,
   Rows3,
   TextCursorInput,
+  Trash2,
   Type,
   Video,
 } from "lucide-react";
 import { THEME_NAMES, type ThemeName } from "@/lib/themes";
 import type { DictionaryKey } from "@/lib/i18n";
-import { asTagPosition, asTagSize } from "@/lib/utils/tag";
+import {
+  asTagBorderStyle,
+  asTagBorderWidth,
+  asTagPosition,
+  asTagShape,
+  asTagSize,
+} from "@/lib/utils/tag";
 import { DraggablePaletteItem } from "./DraggablePaletteItem";
 import { IconPicker } from "./IconPicker";
 import { TextRichEditor } from "./TextRichEditor";
@@ -56,10 +62,22 @@ interface SelectedLayoutNodeData {
       | "top-center"
       | "bottom-center";
     tagSize?: "small" | "medium" | "large";
+    tagBgColor?: string;
+    tagTextColor?: string;
+    tagBorderStyle?: "solid" | "dashed" | "dotted";
+    tagBorderWidth?: "0px" | "1px" | "2px" | "4px";
+    tagShape?: "square" | "rounded" | "pill";
     emojiIcon?: string;
     backgroundColor?: string;
     borderColor?: string;
     borderWidth?: number;
+    enableCustomWrapper?: boolean;
+    borderStyle?: "solid" | "dashed" | "dotted";
+    boxShadow?: "none" | "sm" | "md" | "lg";
+    radiusTR?: number;
+    radiusTL?: number;
+    radiusBR?: number;
+    radiusBL?: number;
   };
 }
 
@@ -112,10 +130,6 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string");
 }
 
-function asStringList(value: unknown): string {
-  return asStringArray(value).join(", ");
-}
-
 function asFieldConfigs(
   value: unknown
 ): Array<{ id: string; placeholder: string }> {
@@ -152,6 +166,26 @@ function toBorderWidth(value: unknown, fallback = 1): number {
     return parsed;
   }
   return fallback;
+}
+
+function toTagBorderWidth(value: unknown): "0px" | "1px" | "2px" | "4px" {
+  return asTagBorderWidth(value);
+}
+
+function toStructuralBorderStyle(value: unknown): "solid" | "dashed" | "dotted" {
+  return value === "dashed" || value === "dotted" ? value : "solid";
+}
+
+function toStructuralBoxShadow(value: unknown): "none" | "sm" | "md" | "lg" {
+  return value === "sm" || value === "md" || value === "lg" ? value : "none";
+}
+
+function toRadiusNumber(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+  return Math.min(Math.floor(parsed), 999);
 }
 
 function updateSelectedConfig(
@@ -296,6 +330,105 @@ function IconCardConfigPanel({
   );
 }
 
+function ListConfigPanel({
+  selectedElement,
+  config,
+  onUpdateElementConfig,
+}: {
+  selectedElement: SelectedElementData;
+  config: Record<string, unknown>;
+  onUpdateElementConfig: BuilderSidebarProps["onUpdateElementConfig"];
+}) {
+  const [nextItem, setNextItem] = useState("");
+  const listItems = asStringArray(config.listItems ?? config.items);
+  const listStyle = config.style === "numbers" ? "numbers" : "bullets";
+
+  const updateListItems = (items: string[]) => {
+    updateSelectedConfig(
+      selectedElement,
+      { listItems: items, style: listStyle },
+      onUpdateElementConfig
+    );
+  };
+
+  const addItem = () => {
+    const trimmed = nextItem.trim();
+    if (!trimmed) {
+      return;
+    }
+    updateListItems([...listItems, trimmed]);
+    setNextItem("");
+  };
+
+  return (
+    <>
+      <div className="space-y-2">
+        <span className="text-xs">{t("items")}</span>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={nextItem}
+            className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+            onChange={(event) => setNextItem(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                addItem();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded border border-border bg-background px-2 py-1.5 text-xs"
+            onClick={addItem}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>{t("addItem")}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {listItems.map((item, index) => (
+          <div
+            key={`${item}-${index}`}
+            className="flex items-center justify-between gap-2 rounded border border-border bg-background px-2 py-1.5 text-sm"
+          >
+            <span className="min-w-0 flex-1 truncate">{item}</span>
+            <button
+              type="button"
+              className="rounded border border-danger/40 p-1 text-danger hover:bg-danger/10"
+              onClick={() =>
+                updateListItems(listItems.filter((_, itemIndex) => itemIndex !== index))
+              }
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <label className="block space-y-1">
+        <span className="text-xs">{t("style")}</span>
+        <select
+          value={listStyle}
+          className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+          onChange={(event) =>
+            updateSelectedConfig(
+              selectedElement,
+              { listItems, style: event.target.value },
+              onUpdateElementConfig
+            )
+          }
+        >
+          <option value="bullets">{t("bullets")}</option>
+          <option value="numbers">{t("numbers")}</option>
+        </select>
+      </label>
+    </>
+  );
+}
+
 function getPaletteIcon(type: ElementType) {
   switch (type) {
     case "heading":
@@ -306,8 +439,6 @@ function getPaletteIcon(type: ElementType) {
       return ImageIcon;
     case "video":
       return Video;
-    case "hero":
-      return LayoutTemplate;
     case "alert":
       return AlertTriangle;
     case "list":
@@ -328,8 +459,6 @@ function getPaletteIcon(type: ElementType) {
       return Rows3;
     case "card_builder":
       return LayoutGrid;
-    case "options_builder":
-      return ListOrdered;
     case "research_block":
       return FlaskConical;
     case "position_paper":
@@ -413,10 +542,22 @@ export function BuilderSidebar({
     const badge = asString(settings.badge);
     const tagPosition = asTagPosition(settings.tagPosition);
     const tagSize = asTagSize(settings.tagSize);
+    const tagBgColor = asString(settings.tagBgColor);
+    const tagTextColor = asString(settings.tagTextColor);
+    const tagBorderStyle = asTagBorderStyle(settings.tagBorderStyle);
+    const tagBorderWidth = toTagBorderWidth(settings.tagBorderWidth);
+    const tagShape = asTagShape(settings.tagShape);
     const emojiIcon = asString(settings.emojiIcon);
     const backgroundColor = asString(settings.backgroundColor);
     const borderColor = asString(settings.borderColor);
     const borderWidth = toBorderWidth(settings.borderWidth, 1);
+    const borderStyle = toStructuralBorderStyle(settings.borderStyle);
+    const boxShadow = toStructuralBoxShadow(settings.boxShadow);
+    const radiusTR = toRadiusNumber(settings.radiusTR);
+    const radiusTL = toRadiusNumber(settings.radiusTL);
+    const radiusBR = toRadiusNumber(settings.radiusBR);
+    const radiusBL = toRadiusNumber(settings.radiusBL);
+    const enableCustomWrapper = Boolean(settings.enableCustomWrapper);
 
     return (
       <aside className="h-full overflow-y-auto overflow-x-visible border-l border-border bg-surface-raised p-4">
@@ -482,6 +623,106 @@ export function BuilderSidebar({
             </label>
           </div>
 
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block space-y-1">
+              <span className="text-xs">{t("tagShape")}</span>
+              <select
+                value={tagShape}
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                onChange={(event) =>
+                  onUpdateLayoutSettings(selectedLayoutNode, {
+                    tagShape: event.target.value,
+                  })
+                }
+              >
+                <option value="square">{t("square")}</option>
+                <option value="rounded">{t("rounded")}</option>
+                <option value="pill">{t("pill")}</option>
+              </select>
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs">{t("tagBorderWidth")}</span>
+              <select
+                value={tagBorderWidth}
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                onChange={(event) =>
+                  onUpdateLayoutSettings(selectedLayoutNode, {
+                    tagBorderWidth: event.target.value,
+                  })
+                }
+              >
+                <option value="0px">0px</option>
+                <option value="1px">1px</option>
+                <option value="2px">2px</option>
+                <option value="4px">4px</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-xs">{t("tagBorderStyle")}</span>
+            <select
+              value={tagBorderStyle}
+              className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+              onChange={(event) =>
+                onUpdateLayoutSettings(selectedLayoutNode, {
+                  tagBorderStyle: event.target.value,
+                })
+              }
+            >
+              <option value="solid">{t("solid")}</option>
+              <option value="dashed">{t("dashed")}</option>
+              <option value="dotted">{t("dotted")}</option>
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs">{t("tagBgColor")}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={toColorInputValue(tagBgColor, "#2563eb")}
+                className="h-9 w-full rounded border border-border bg-background p-1"
+                onChange={(event) =>
+                  onUpdateLayoutSettings(selectedLayoutNode, {
+                    tagBgColor: event.target.value,
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                onClick={() => onUpdateLayoutSettings(selectedLayoutNode, { tagBgColor: "" })}
+              >
+                {t("clearColor")}
+              </button>
+            </div>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs">{t("tagTextColor")}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={toColorInputValue(tagTextColor, "#ffffff")}
+                className="h-9 w-full rounded border border-border bg-background p-1"
+                onChange={(event) =>
+                  onUpdateLayoutSettings(selectedLayoutNode, {
+                    tagTextColor: event.target.value,
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                onClick={() => onUpdateLayoutSettings(selectedLayoutNode, { tagTextColor: "" })}
+              >
+                {t("clearColor")}
+              </button>
+            </div>
+          </label>
+
           <label className="block space-y-1">
             <span className="text-xs">{t("emojiIcon")}</span>
             <input
@@ -495,69 +736,191 @@ export function BuilderSidebar({
             />
           </label>
 
-          <label className="block space-y-1">
-            <span className="text-xs">{t("backgroundColor")}</span>
-            <div className="flex items-center gap-2">
+          <div className="border-t border-border pt-3">
+            <label className="flex items-center gap-2">
               <input
-                type="color"
-                value={toColorInputValue(backgroundColor, "#ffffff")}
-                className="h-9 w-full rounded border border-border bg-background p-1"
+                type="checkbox"
+                checked={enableCustomWrapper}
+                className="h-4 w-4 accent-primary"
                 onChange={(event) =>
                   onUpdateLayoutSettings(selectedLayoutNode, {
-                    backgroundColor: event.target.value,
+                    enableCustomWrapper: event.target.checked,
                   })
                 }
               />
-              <button
-                type="button"
-                className="rounded border border-border bg-background px-2 py-1.5 text-xs"
-                onClick={() => onUpdateLayoutSettings(selectedLayoutNode, { backgroundColor: "" })}
-              >
-                {t("clearColor")}
-              </button>
-            </div>
-          </label>
+              <span className="text-xs">{t("enableCustomWrapper")}</span>
+            </label>
+          </div>
 
-          <label className="block space-y-1">
-            <span className="text-xs">{t("borderColor")}</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={toColorInputValue(borderColor, "#d4d4d8")}
-                className="h-9 w-full rounded border border-border bg-background p-1"
-                onChange={(event) =>
-                  onUpdateLayoutSettings(selectedLayoutNode, {
-                    borderColor: event.target.value,
-                  })
-                }
-              />
-              <button
-                type="button"
-                className="rounded border border-border bg-background px-2 py-1.5 text-xs"
-                onClick={() => onUpdateLayoutSettings(selectedLayoutNode, { borderColor: "" })}
-              >
-                {t("clearColor")}
-              </button>
-            </div>
-          </label>
+          {enableCustomWrapper ? (
+            <>
+              <label className="block space-y-1">
+                <span className="text-xs">{t("backgroundColor")}</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={toColorInputValue(backgroundColor, "#ffffff")}
+                    className="h-9 w-full rounded border border-border bg-background p-1"
+                    onChange={(event) =>
+                      onUpdateLayoutSettings(selectedLayoutNode, {
+                        backgroundColor: event.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                    onClick={() =>
+                      onUpdateLayoutSettings(selectedLayoutNode, { backgroundColor: "" })
+                    }
+                  >
+                    {t("clearColor")}
+                  </button>
+                </div>
+              </label>
 
-          <label className="block space-y-1">
-            <span className="text-xs">{t("borderWidth")}</span>
-            <select
-              value={borderWidth}
-              className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-              onChange={(event) =>
-                onUpdateLayoutSettings(selectedLayoutNode, {
-                  borderWidth: Number(event.target.value),
-                })
-              }
-            >
-              <option value={0}>0px</option>
-              <option value={1}>1px</option>
-              <option value={2}>2px</option>
-              <option value={4}>4px</option>
-            </select>
-          </label>
+              <label className="block space-y-1">
+                <span className="text-xs">{t("borderColor")}</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={toColorInputValue(borderColor, "#d4d4d8")}
+                    className="h-9 w-full rounded border border-border bg-background p-1"
+                    onChange={(event) =>
+                      onUpdateLayoutSettings(selectedLayoutNode, {
+                        borderColor: event.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                    onClick={() => onUpdateLayoutSettings(selectedLayoutNode, { borderColor: "" })}
+                  >
+                    {t("clearColor")}
+                  </button>
+                </div>
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs">{t("borderWidth")}</span>
+                <select
+                  value={borderWidth}
+                  className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                  onChange={(event) =>
+                    onUpdateLayoutSettings(selectedLayoutNode, {
+                      borderWidth: Number(event.target.value),
+                    })
+                  }
+                >
+                  <option value={0}>0px</option>
+                  <option value={1}>1px</option>
+                  <option value={2}>2px</option>
+                  <option value={4}>4px</option>
+                </select>
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs">{t("borderStyle")}</span>
+                <select
+                  value={borderStyle}
+                  className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                  onChange={(event) =>
+                    onUpdateLayoutSettings(selectedLayoutNode, {
+                      borderStyle: event.target.value,
+                    })
+                  }
+                >
+                  <option value="solid">{t("solid")}</option>
+                  <option value="dashed">{t("dashed")}</option>
+                  <option value="dotted">{t("dotted")}</option>
+                </select>
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs">{t("boxShadow")}</span>
+                <select
+                  value={boxShadow}
+                  className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                  onChange={(event) =>
+                    onUpdateLayoutSettings(selectedLayoutNode, {
+                      boxShadow: event.target.value,
+                    })
+                  }
+                >
+                  <option value="none">{t("none")}</option>
+                  <option value="sm">{t("shadowSm")}</option>
+                  <option value="md">{t("shadowMd")}</option>
+                  <option value="lg">{t("shadowLg")}</option>
+                </select>
+              </label>
+
+              <div className="space-y-2">
+                <p className="text-xs">{t("cornersConfig")}</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="block space-y-1">
+                    <span className="text-[11px]">{t("radiusTopRight")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={radiusTR}
+                      className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                      onChange={(event) =>
+                        onUpdateLayoutSettings(selectedLayoutNode, {
+                          radiusTR: toRadiusNumber(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-[11px]">{t("radiusTopLeft")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={radiusTL}
+                      className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                      onChange={(event) =>
+                        onUpdateLayoutSettings(selectedLayoutNode, {
+                          radiusTL: toRadiusNumber(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-[11px]">{t("radiusBottomRight")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={radiusBR}
+                      className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                      onChange={(event) =>
+                        onUpdateLayoutSettings(selectedLayoutNode, {
+                          radiusBR: toRadiusNumber(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+
+                  <label className="block space-y-1">
+                    <span className="text-[11px]">{t("radiusBottomLeft")}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={radiusBL}
+                      className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                      onChange={(event) =>
+                        onUpdateLayoutSettings(selectedLayoutNode, {
+                          radiusBL: toRadiusNumber(event.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </aside>
     );
@@ -570,6 +933,11 @@ export function BuilderSidebar({
   const badgeText = asString(elementRecord.badgeText);
   const tagPosition = asTagPosition(elementRecord.tagPosition);
   const tagSize = asTagSize(elementRecord.tagSize);
+  const tagBgColor = asString(elementRecord.tagBgColor);
+  const tagTextColor = asString(elementRecord.tagTextColor);
+  const tagBorderStyle = asTagBorderStyle(elementRecord.tagBorderStyle);
+  const tagBorderWidth = toTagBorderWidth(elementRecord.tagBorderWidth);
+  const tagShape = asTagShape(elementRecord.tagShape);
   const emojiIcon = asString(elementRecord.emojiIcon);
   const elementBorderWidth = toBorderWidth(elementRecord.borderWidth, 1);
   const elementBorderColor = asString(elementRecord.borderColor);
@@ -910,58 +1278,6 @@ export function BuilderSidebar({
           </label>
         ) : null}
 
-        {selectedElement.element.type === "hero" ? (
-          <>
-            <label className="block space-y-1">
-              <span className="text-xs">{t("title")}</span>
-              <input
-                type="text"
-                value={asString(config.title)}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    { title: event.target.value },
-                    onUpdateElementConfig
-                  )
-                }
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs">{t("subtitle")}</span>
-              <input
-                type="text"
-                value={asString(config.subtitle)}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    { subtitle: event.target.value },
-                    onUpdateElementConfig
-                  )
-                }
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs">{t("align")}</span>
-              <select
-                value={config.align === "center" ? "center" : "right"}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    { align: event.target.value },
-                    onUpdateElementConfig
-                  )
-                }
-              >
-                <option value="right">{t("right")}</option>
-                <option value="center">{t("center")}</option>
-              </select>
-            </label>
-          </>
-        ) : null}
-
         {selectedElement.element.type === "alert" ? (
           <>
             <label className="block space-y-1">
@@ -1005,44 +1321,12 @@ export function BuilderSidebar({
         ) : null}
 
         {selectedElement.element.type === "list" ? (
-          <>
-            <label className="block space-y-1">
-              <span className="text-xs">{t("items")}</span>
-              <textarea
-                value={asStringList(config.items)}
-                className="min-h-24 w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    {
-                      items: event.target.value
-                        .split(",")
-                        .map((item) => item.trim())
-                        .filter(Boolean),
-                    },
-                    onUpdateElementConfig
-                  )
-                }
-              />
-            </label>
-            <label className="block space-y-1">
-              <span className="text-xs">{t("style")}</span>
-              <select
-                value={config.style === "numbers" ? "numbers" : "bullets"}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    { style: event.target.value },
-                    onUpdateElementConfig
-                  )
-                }
-              >
-                <option value="bullets">{t("bullets")}</option>
-                <option value="numbers">{t("numbers")}</option>
-              </select>
-            </label>
-          </>
+          <ListConfigPanel
+            key={selectedElement.elementId}
+            selectedElement={selectedElement}
+            config={config}
+            onUpdateElementConfig={onUpdateElementConfig}
+          />
         ) : null}
 
         {selectedElement.element.type === "icon_card" ? (
@@ -1578,42 +1862,6 @@ export function BuilderSidebar({
           </>
         ) : null}
 
-        {selectedElement.element.type === "options_builder" ? (
-          <>
-            <label className="block space-y-1">
-              <span className="text-xs">{t("addButtonText")}</span>
-              <input
-                type="text"
-                value={asString(config.addButtonText)}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    { addButtonText: event.target.value },
-                    onUpdateElementConfig
-                  )
-                }
-              />
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs">{t("optionTitlePrefix")}</span>
-              <input
-                type="text"
-                value={asString(config.optionTitlePrefix)}
-                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
-                onChange={(event) =>
-                  updateSelectedConfig(
-                    selectedElement,
-                    { optionTitlePrefix: event.target.value },
-                    onUpdateElementConfig
-                  )
-                }
-              />
-            </label>
-          </>
-        ) : null}
-
         {selectedElement.element.type === "research_block" ? (
           <>
             <label className="block space-y-1">
@@ -1756,6 +2004,128 @@ export function BuilderSidebar({
               </select>
             </label>
           </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block space-y-1">
+              <span className="text-xs">{t("tagShape")}</span>
+              <select
+                value={tagShape}
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                onChange={(event) =>
+                  updateSelectedGlobal(
+                    selectedElement,
+                    { tagShape: event.target.value },
+                    onUpdateElementGlobal
+                  )
+                }
+              >
+                <option value="square">{t("square")}</option>
+                <option value="rounded">{t("rounded")}</option>
+                <option value="pill">{t("pill")}</option>
+              </select>
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-xs">{t("tagBorderWidth")}</span>
+              <select
+                value={tagBorderWidth}
+                className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+                onChange={(event) =>
+                  updateSelectedGlobal(
+                    selectedElement,
+                    { tagBorderWidth: event.target.value },
+                    onUpdateElementGlobal
+                  )
+                }
+              >
+                <option value="0px">0px</option>
+                <option value="1px">1px</option>
+                <option value="2px">2px</option>
+                <option value="4px">4px</option>
+              </select>
+            </label>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-xs">{t("tagBorderStyle")}</span>
+            <select
+              value={tagBorderStyle}
+              className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
+              onChange={(event) =>
+                updateSelectedGlobal(
+                  selectedElement,
+                  { tagBorderStyle: event.target.value },
+                  onUpdateElementGlobal
+                )
+              }
+            >
+              <option value="solid">{t("solid")}</option>
+              <option value="dashed">{t("dashed")}</option>
+              <option value="dotted">{t("dotted")}</option>
+            </select>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs">{t("tagBgColor")}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={toColorInputValue(tagBgColor, "#2563eb")}
+                className="h-9 w-full rounded border border-border bg-background p-1"
+                onChange={(event) =>
+                  updateSelectedGlobal(
+                    selectedElement,
+                    { tagBgColor: event.target.value },
+                    onUpdateElementGlobal
+                  )
+                }
+              />
+              <button
+                type="button"
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                onClick={() =>
+                  updateSelectedGlobal(
+                    selectedElement,
+                    { tagBgColor: "" },
+                    onUpdateElementGlobal
+                  )
+                }
+              >
+                {t("clearColor")}
+              </button>
+            </div>
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs">{t("tagTextColor")}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={toColorInputValue(tagTextColor, "#ffffff")}
+                className="h-9 w-full rounded border border-border bg-background p-1"
+                onChange={(event) =>
+                  updateSelectedGlobal(
+                    selectedElement,
+                    { tagTextColor: event.target.value },
+                    onUpdateElementGlobal
+                  )
+                }
+              />
+              <button
+                type="button"
+                className="rounded border border-border bg-background px-2 py-1.5 text-xs"
+                onClick={() =>
+                  updateSelectedGlobal(
+                    selectedElement,
+                    { tagTextColor: "" },
+                    onUpdateElementGlobal
+                  )
+                }
+              >
+                {t("clearColor")}
+              </button>
+            </div>
+          </label>
 
           <label className="block space-y-1">
             <span className="text-xs">{t("emojiIcon")}</span>

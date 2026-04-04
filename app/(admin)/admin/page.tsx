@@ -79,6 +79,47 @@ export default async function AdminHackathonsPage() {
         </form>
       </section>
 
+      <section className="rounded-xl border border-border bg-surface-raised p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground">{t("templates")}</h2>
+
+        {templates.length === 0 ? (
+          <p className="mt-4 text-sm text-foreground/70">{t("none")}</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {templates.map((template) => {
+              const deleteTemplateAction = deleteHackathon.bind(null, template.id);
+
+              return (
+                <article
+                  key={template.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {template.title || t("untitledHackathon")}
+                    </p>
+                  </div>
+
+                  <form
+                    action={deleteTemplateAction}
+                    className="js-confirm-delete"
+                    data-confirm-message={t("confirmDelete")}
+                  >
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1 rounded-lg border border-danger/40 px-3 py-2 text-xs font-medium text-danger hover:bg-danger/10"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t("delete")}
+                    </button>
+                  </form>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {hackathons.length === 0 ? (
         <section className="rounded-xl border border-border bg-white p-6 text-sm text-foreground/70 shadow-sm">
           {t("none")}

@@ -6,6 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 
 type JsonObject = Record<string, unknown>;
 
+function cloneJsonObject(value: unknown): JsonObject {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return structuredClone(value as JsonObject);
+}
+
 function buildDefaultDefinition(title: string): JsonObject {
   return {
     id: "",
@@ -139,9 +147,11 @@ export async function deleteHackathon(id: string) {
   }
 
   const actionClient = await createClient();
-  await actionClient.from("hackathons").delete().eq("id", id).eq("is_template", false);
+  await actionClient.from("hackathons").delete().eq("id", id);
 
   revalidateAdmin();
+  revalidateBuilder(id);
+  revalidatePath("/");
 }
 
 export async function toggleActive(id: string) {
@@ -209,7 +219,7 @@ export async function updateMetadata(formData: FormData) {
 
 export async function saveAsTemplate(
   id: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   if (!id) {
     return { ok: false, error: t("errorGeneric") };
   }
@@ -217,7 +227,7 @@ export async function saveAsTemplate(
   const actionClient = await createClient();
   const { data: source, error: sourceError } = await actionClient
     .from("hackathons")
-    .select("title, definition, theme")
+    .select("title, description, definition, theme")
     .eq("id", id)
     .eq("is_template", false)
     .maybeSingle();
@@ -230,11 +240,23 @@ export async function saveAsTemplate(
     typeof source.title === "string" && source.title.trim()
       ? source.title.trim()
       : t("untitledHackathon");
+  const templateId = crypto.randomUUID();
+  const templateTitle = `${baseTitle}${t("templateSuffix")}`;
+  const definition = cloneJsonObject(source.definition);
+  const theme = cloneJsonObject(source.theme);
+
+  definition.id = templateId;
+  definition.title = templateTitle;
+  definition.description =
+    typeof source.description === "string" ? source.description : "";
+  definition.is_active = false;
 
   const { error: insertError } = await actionClient.from("hackathons").insert({
-    title: `${baseTitle}${t("templateSuffix")}`,
-    definition: source.definition,
-    theme: source.theme,
+    id: templateId,
+    title: templateTitle,
+    description: typeof source.description === "string" ? source.description : "",
+    definition,
+    theme,
     is_template: true,
     is_active: false,
     is_published: false,
@@ -245,7 +267,8 @@ export async function saveAsTemplate(
   }
 
   revalidateAdmin();
-  return { ok: true };
+  revalidateBuilder(templateId);
+  return { ok: true, id: templateId };
 }
 
 export async function updateHackathonSettings(

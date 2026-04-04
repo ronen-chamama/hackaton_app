@@ -34,6 +34,7 @@ interface BuilderClientProps {
   initialDefinition: HackathonDefinition;
   initialTitle: string;
   initialDescription: string;
+  initialIsTemplate: boolean;
 }
 
 type SelectedElementRef = {
@@ -104,7 +105,6 @@ const PALETTE_TYPES: ElementType[] = [
   "text",
   "image",
   "video",
-  "hero",
   "alert",
   "list",
   "info-card",
@@ -115,7 +115,6 @@ const PALETTE_TYPES: ElementType[] = [
   "repeater_list",
   "advanced_repeater",
   "card_builder",
-  "options_builder",
   "research_block",
   "position_paper",
   "pitch",
@@ -130,6 +129,11 @@ function withBlockDesignDefaults(config: Record<string, unknown>) {
     ...config,
     tagPosition: "top-right",
     tagSize: "small",
+    tagBgColor: "",
+    tagTextColor: "",
+    tagBorderStyle: "solid",
+    tagBorderWidth: "0px",
+    tagShape: "rounded",
     emojiIcon: "",
     borderWidth: 1,
     borderColor: "",
@@ -261,6 +265,7 @@ export default function BuilderClient({
   initialDefinition,
   initialTitle,
   initialDescription,
+  initialIsTemplate,
 }: BuilderClientProps) {
   const supabase = useMemo(() => createClient(), []);
   const sensors = useSensors(
@@ -721,12 +726,10 @@ export default function BuilderClient({
         return withBlockDesignDefaults({ url: "", alt: "" });
       case "video":
         return withBlockDesignDefaults({ youtubeId: "" });
-      case "hero":
-        return withBlockDesignDefaults({ title: "", subtitle: "", align: "right" });
       case "alert":
         return withBlockDesignDefaults({ type: "info", text: "" });
       case "list":
-        return withBlockDesignDefaults({ items: [], style: "bullets" });
+        return withBlockDesignDefaults({ listItems: [], style: "bullets" });
       case "info-card":
         return withBlockDesignDefaults({
           cardTitle: "",
@@ -761,8 +764,6 @@ export default function BuilderClient({
           descPlaceholder: "",
           inputPlaceholder: "",
         });
-      case "options_builder":
-        return withBlockDesignDefaults({ addButtonText: "", optionTitlePrefix: "" });
       case "research_block":
         return withBlockDesignDefaults({ title: "", findings: [], sources: [], summary: "" });
       case "position_paper":
@@ -1327,14 +1328,21 @@ export default function BuilderClient({
     updateDraft((prev) => ({ ...prev, themeName: theme }));
   };
 
-  const handleSaveAsTemplate = () => {
-    startSavingTemplate(async () => {
-      const result = await saveAsTemplate(hackathonId);
-      if (result.ok) {
-        window.alert(t("templateSaved"));
-        return;
-      }
-      window.alert(result.error ?? t("errorGeneric"));
+  const handleSaveAsTemplate = async (): Promise<{ ok: true; id: string } | { ok: false }> => {
+    if (initialIsTemplate) {
+      return { ok: false };
+    }
+
+    return new Promise<{ ok: true; id: string } | { ok: false }>((resolve) => {
+      startSavingTemplate(async () => {
+        const result = await saveAsTemplate(hackathonId);
+        if (result.ok) {
+          resolve(result);
+          return;
+        }
+        window.alert(result.error ?? t("errorGeneric"));
+        resolve({ ok: false });
+      });
     });
   };
 
@@ -1365,9 +1373,11 @@ export default function BuilderClient({
     >
       <div className="flex h-screen flex-col overflow-hidden">
         <BuilderHeader
+          key={hackathonId}
           hackathonId={hackathonId}
           title={hackathonTitle}
           description={hackathonDescription}
+          isTemplate={initialIsTemplate}
           isSavingTemplate={isSavingTemplate}
           isUpdatingHackathonSettings={isUpdatingHackathonSettings}
           onSaveAsTemplate={handleSaveAsTemplate}

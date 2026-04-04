@@ -30,7 +30,6 @@ export type ElementType =
   | "text"
   | "image"
   | "video"
-  | "hero"
   | "alert"
   | "list"
   | "info-card"
@@ -43,7 +42,6 @@ export type ElementType =
   | "advanced_repeater"
   // Complex
   | "card_builder"
-  | "options_builder"
   | "research_block"
   | "position_paper"
   | "pitch";
@@ -67,10 +65,22 @@ export interface LayoutSettings {
     | "top-center"
     | "bottom-center";
   tagSize?: "small" | "medium" | "large";
+  tagBgColor?: string;
+  tagTextColor?: string;
+  tagBorderStyle?: "solid" | "dashed" | "dotted";
+  tagBorderWidth?: "0px" | "1px" | "2px" | "4px";
+  tagShape?: "square" | "rounded" | "pill";
   emojiIcon?: string;
   backgroundColor?: string;
   borderColor?: string;
   borderWidth?: number;
+  enableCustomWrapper?: boolean;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  boxShadow?: "none" | "sm" | "md" | "lg";
+  radiusTR?: number;
+  radiusTL?: number;
+  radiusBR?: number;
+  radiusBL?: number;
 }
 
 export interface Column {

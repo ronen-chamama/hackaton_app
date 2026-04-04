@@ -1,13 +1,13 @@
 interface ListElementProps {
-  items: string[];
+  listItems: string[];
   style: "bullets" | "numbers";
 }
 
-export function ListElement({ items, style }: ListElementProps) {
+export function ListElement({ listItems, style }: ListElementProps) {
   if (style === "numbers") {
     return (
-      <ol className="list-decimal space-y-1 pr-6">
-        {items.map((item, index) => (
+      <ol className="list-decimal list-inside space-y-1">
+        {listItems.map((item, index) => (
           <li key={`${item}-${index}`} className="text-base leading-7">
             {item}
           </li>
@@ -17,8 +17,8 @@ export function ListElement({ items, style }: ListElementProps) {
   }
 
   return (
-    <ul className="list-disc space-y-1 pr-6">
-      {items.map((item, index) => (
+    <ul className="list-disc list-inside space-y-1">
+      {listItems.map((item, index) => (
         <li key={`${item}-${index}`} className="text-base leading-7">
           {item}
         </li>

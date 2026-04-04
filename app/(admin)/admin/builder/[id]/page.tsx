@@ -13,6 +13,28 @@ interface BuilderPageProps {
   params: Promise<{ id: string }>;
 }
 
+const isElementType = (value: unknown): value is ElementType =>
+  typeof value === "string" &&
+  [
+    "heading",
+    "text",
+    "image",
+    "video",
+    "alert",
+    "list",
+    "info-card",
+    "icon_card",
+    "link_button",
+    "short_text",
+    "long_text",
+    "repeater_list",
+    "advanced_repeater",
+    "card_builder",
+    "research_block",
+    "position_paper",
+    "pitch",
+  ].includes(value);
+
 function sanitizeDefinition(value: unknown): HackathonDefinition {
   const raw =
     value && typeof value === "object" && !Array.isArray(value)
@@ -30,6 +52,11 @@ function sanitizeDefinition(value: unknown): HackathonDefinition {
     delete config.beforeTextAlign;
     delete config.afterTextAlign;
 
+    if (Array.isArray(config.items) && !Array.isArray(config.listItems)) {
+      config.listItems = config.items;
+    }
+    delete config.items;
+
     return config;
   };
 
@@ -38,19 +65,23 @@ function sanitizeDefinition(value: unknown): HackathonDefinition {
       return [];
     }
 
-    return columnRaw.elements.map((elementRaw) => {
+    return columnRaw.elements.flatMap((elementRaw) => {
       const nextElement =
         elementRaw && typeof elementRaw === "object" && !Array.isArray(elementRaw)
           ? ({ ...(elementRaw as Record<string, unknown>) } as Record<string, unknown>)
           : {};
 
-      return {
+      if (!isElementType(nextElement.type)) {
+        return [];
+      }
+
+      return [{
         ...(nextElement as unknown as Element),
         id:
           typeof nextElement.id === "string" ? nextElement.id : `element-${crypto.randomUUID()}`,
-        type: isElementType(nextElement.type) ? nextElement.type : "text",
+        type: nextElement.type,
         config: sanitizeElementConfig(nextElement.config),
-      };
+      }];
     });
   };
 
@@ -160,7 +191,7 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
 
   const { data: hackathon, error } = await supabase
     .from("hackathons")
-    .select("id, title, description, definition")
+    .select("id, title, description, definition, is_template")
     .eq("id", id)
     .maybeSingle();
 
@@ -179,29 +210,7 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
       initialDefinition={sanitizeDefinition(hackathon.definition)}
       initialTitle={(hackathon.title as string | null) ?? ""}
       initialDescription={(hackathon.description as string | null) ?? ""}
+      initialIsTemplate={Boolean(hackathon.is_template)}
     />
   );
 }
-  const isElementType = (value: unknown): value is ElementType =>
-    typeof value === "string" &&
-    [
-      "heading",
-      "text",
-      "image",
-      "video",
-      "hero",
-      "alert",
-      "list",
-      "info-card",
-      "icon_card",
-      "link_button",
-      "short_text",
-      "long_text",
-      "repeater_list",
-      "advanced_repeater",
-      "card_builder",
-      "options_builder",
-      "research_block",
-      "position_paper",
-      "pitch",
-    ].includes(value);

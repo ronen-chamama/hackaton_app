@@ -51,13 +51,21 @@
   --color-info: var(--color-info);
 }
 
+/* Force theme body font on ALL descendants.
+   Uses !important to beat Tailwind utility layer specificity. */
+[data-theme],
+[data-theme] * {
+  font-family: var(--font-body), system-ui, sans-serif !important;
+}
+
+/* Headings use the heading font instead */
 [data-theme] h1,
 [data-theme] h2,
 [data-theme] h3,
 [data-theme] h4,
 [data-theme] h5,
 [data-theme] h6 {
-  font-family: var(--font-heading), system-ui, sans-serif;
+  font-family: var(--font-heading), system-ui, sans-serif !important;
 }
 
 body {
@@ -70,83 +78,112 @@ body {
 @media print { html, body { direction: rtl; } }
 
 /* ===========================================================================
-   UNIVERSAL INVISIBLE CONTAINERS / COLUMNS
-   Containers and columns are pure layout scaffolding.
-   No borders, no backgrounds, no shadows — ever.
-   Individual themes override ARTICLE and HEADER only.
+   UNIVERSAL CONTAINER / COLUMN DEFAULTS
+   Containers and columns are layout scaffolding — ALWAYS invisible.
+   Uses !important so NO theme selector can accidentally style them.
+   Only <article> elements (the actual content blocks) receive theme styling.
+   Builder inline styles for containers still work via enableCustomWrapper.
    =========================================================================== */
 
-[data-renderer="container"] {
+[data-renderer="container"]:not([data-custom-wrapper]),
+[data-renderer="column"]:not([data-custom-wrapper]) {
   border: none !important;
   background: transparent !important;
   box-shadow: none !important;
   border-radius: 0 !important;
-  padding: 0 !important;
-}
-
-[data-renderer="column"] {
-  border: none !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  /* columns still need padding for spacing */
-  padding: 0.25rem !important;
 }
 
 /* ===========================================================================
 
    ╔═══════════════════════════════════╗
    ║  S I M P L E  (פשוט)             ║
-   ║  Glassmorphism SaaS — Linear/     ║
-   ║  Vercel aesthetic. Soft lavender  ║
-   ║  gradient, everything frosted.    ║
+   ║  Luminous Glass — premium aurora  ║
+   ║  glassmorphism with floating      ║
+   ║  frosted cards, glowing badges,   ║
+   ║  and dreamy gradient backdrop.    ║
    ╚═══════════════════════════════════╝
 
    =========================================================================== */
 
 [data-theme="simple"] {
   --font-body: var(--font-heebo);
-  --font-heading: var(--font-heebo);
+  --font-heading: var(--font-assistant);
+  --font-sans: var(--font-heebo), system-ui, sans-serif;
   font-family: var(--font-heebo), sans-serif;
-  --background: #f5f3ff;
+  --background: #f0ecff;
   --foreground: #1e1b4b;
   --surface: #ede9fe;
-  --surface-raised: rgba(255,255,255,0.9);
-  --border: rgba(139,92,246,0.18);
+  --surface-raised: rgba(255,255,255,0.88);
+  --border: rgba(139,92,246,0.15);
   --color-primary: #7c3aed;
   --color-primary-foreground: #ffffff;
-  --color-secondary: #0ea5e9;
+  --color-secondary: #06b6d4;
   --color-secondary-foreground: #ffffff;
   --color-accent: #ec4899;
   --color-accent-foreground: #ffffff;
 }
 
 [data-theme="simple"] {
-  background: linear-gradient(145deg, #f0e9ff 0%, #e8f4ff 35%, #fce7ff 65%, #e8efff 100%);
+  background:
+    radial-gradient(ellipse at 15% 10%, rgba(167,139,250,0.28) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 20%, rgba(236,72,153,0.16) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(6,182,212,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 50%, rgba(139,92,246,0.08) 0%, transparent 70%),
+    linear-gradient(160deg, #f0ecff 0%, #e8f0ff 30%, #fce8f5 60%, #e8ecff 100%);
   min-height: 100vh;
 }
 
-/* Header: floating frosted glass card */
+/* ── Header: floating frosted-glass hero card with glow ring ── */
 [data-theme="simple"] header {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(139,92,246,0.18);
+  background: rgba(255,255,255,0.62);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(139,92,246,0.2);
   border-radius: 1.5rem;
   box-shadow:
-    0 8px 32px rgba(124,58,237,0.1),
-    0 1px 0 rgba(255,255,255,0.95) inset;
+    0 0 0 1px rgba(255,255,255,0.7) inset,
+    0 12px 40px rgba(124,58,237,0.1),
+    0 2px 8px rgba(124,58,237,0.06);
+  overflow: visible;
+  position: relative;
 }
 
-/* Nav: glass pill container */
-[data-theme="simple"] nav {
-  background: rgba(255,255,255,0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(139,92,246,0.14);
+/* Subtle gradient glow above header */
+[data-theme="simple"] header::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #a78bfa, #ec4899, #06b6d4, transparent);
   border-radius: 9999px;
-  padding: 0.3rem;
-  box-shadow: 0 4px 16px rgba(124,58,237,0.07);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Logo: frosted circular frame */
+[data-theme="simple"] header img {
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 2px solid rgba(139,92,246,0.18);
+  box-shadow: 0 4px 16px rgba(124,58,237,0.12);
+  padding: 0.25rem;
+}
+
+/* ── Nav: pill bar with inner glow ── */
+[data-theme="simple"] nav {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid rgba(139,92,246,0.12);
+  border-radius: 9999px;
+  padding: 0.3rem 0.4rem;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.5) inset,
+    0 4px 20px rgba(124,58,237,0.08);
 }
 
 [data-theme="simple"] nav button {
@@ -155,81 +192,164 @@ body {
   background: transparent;
   color: #5b21b6;
   font-weight: 500;
-  transition: all 0.18s ease;
+  transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
 [data-theme="simple"] nav button[data-active="true"] {
-  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #c084fc 100%);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(124,58,237,0.38);
+  box-shadow:
+    0 4px 16px rgba(124,58,237,0.35),
+    0 0 0 1px rgba(255,255,255,0.2) inset;
   transform: translateY(-1px);
 }
 
 [data-theme="simple"] nav button:not([data-active="true"]):hover {
-  background: rgba(124,58,237,0.09);
+  background: rgba(139,92,246,0.1);
+  box-shadow: 0 2px 8px rgba(124,58,237,0.08);
 }
 
-/* Stage section: glass pane */
+/* ── Stage section: large frosted pane ── */
 [data-theme="simple"] section {
-  background: rgba(255,255,255,0.45);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.38);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
   border: 1px solid rgba(139,92,246,0.1);
   border-radius: 1.25rem;
-  box-shadow: 0 4px 24px rgba(124,58,237,0.06);
+  box-shadow: 0 4px 28px rgba(124,58,237,0.06);
 }
 
-/* Articles: individual floating glass cards */
+/* ── Articles: floating frosted element cards ── */
 [data-theme="simple"] article {
-  background: rgba(255,255,255,0.82);
+  background-color: rgba(255,255,255,0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(139,92,246,0.12);
   border-radius: 1rem;
-  box-shadow: 0 2px 12px rgba(124,58,237,0.07);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow:
+    0 2px 12px rgba(124,58,237,0.06),
+    0 0 0 1px rgba(255,255,255,0.5) inset;
+  transition: box-shadow 0.22s ease, transform 0.22s ease;
 }
 
 [data-theme="simple"] article:hover {
-  box-shadow: 0 6px 24px rgba(124,58,237,0.14);
+  box-shadow:
+    0 8px 28px rgba(124,58,237,0.13),
+    0 0 0 1px rgba(167,139,250,0.3) inset;
   transform: translateY(-2px);
 }
 
+/* ── Tags / badges: frosted pill with glow ── */
+[data-theme="simple"] article > span:first-child[class*="absolute"],
+[data-theme="simple"] section > span:first-child[class*="absolute"] {
+  background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
+  color: #fff !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(124,58,237,0.35);
+  border: 1px solid rgba(255,255,255,0.3);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* ── Emoji icons: soft frosted circle ── */
+[data-theme="simple"] > span[class*="absolute"][class*="text-2xl"],
+[data-theme="simple"] > span[class*="absolute"][class*="text-3xl"] {
+  filter: drop-shadow(0 2px 6px rgba(124,58,237,0.2));
+}
+
+/* ── Inputs: frosted fields ── */
 [data-theme="simple"] input[type="text"],
 [data-theme="simple"] textarea {
   border-radius: 0.875rem;
-  border: 1.5px solid rgba(139,92,246,0.22);
-  background: rgba(255,255,255,0.7);
-  transition: all 0.18s ease;
+  border: 1.5px solid rgba(139,92,246,0.18);
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s ease;
 }
 
 [data-theme="simple"] input[type="text"]:focus,
 [data-theme="simple"] textarea:focus {
   border-color: #7c3aed;
-  background: rgba(255,255,255,0.96);
-  box-shadow: 0 0 0 3px rgba(124,58,237,0.12), 0 4px 12px rgba(124,58,237,0.08);
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.12), 0 4px 14px rgba(124,58,237,0.08);
   outline: none;
 }
 
+/* ── Headings: deep indigo with tight tracking ── */
 [data-theme="simple"] h1, [data-theme="simple"] h2, [data-theme="simple"] h3 {
   color: #4c1d95;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: -0.025em;
 }
 
-[data-theme="simple"] footer {
-  background: rgba(255,255,255,0.65);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(139,92,246,0.14);
+[data-theme="simple"] h1 {
+  font-size: 1.75rem;
+}
+
+/* ── Link buttons: gradient pill ── */
+[data-theme="simple"] a[class*="bg-primary"] {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
   border-radius: 9999px;
-  box-shadow: 0 4px 16px rgba(124,58,237,0.07);
+  box-shadow: 0 4px 14px rgba(124,58,237,0.3);
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+[data-theme="simple"] a[class*="bg-primary"]:hover {
+  box-shadow: 0 6px 20px rgba(124,58,237,0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Icon cards: glass card with centered glow icon ── */
+[data-theme="simple"] article[class*="text-center"] {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(139,92,246,0.15);
+  box-shadow: 0 8px 32px rgba(124,58,237,0.08);
+}
+
+[data-theme="simple"] article[class*="text-center"] svg {
+  filter: drop-shadow(0 4px 12px rgba(124,58,237,0.25));
+}
+
+/* ── InfoCard title chip: frosted with glow ── */
+[data-theme="simple"] article[dir="rtl"] > div:first-child > div {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgba(124,58,237,0.1);
+}
+
+/* ── Footer: matching frosted pill ── */
+[data-theme="simple"] footer {
+  background: rgba(255,255,255,0.55);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid rgba(139,92,246,0.12);
+  border-radius: 9999px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.5) inset,
+    0 4px 20px rgba(124,58,237,0.08);
+}
+
+[data-theme="simple"] footer button {
+  border-radius: 9999px;
+}
+
+[data-theme="simple"] footer button[class*="bg-primary"] {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  border: none;
+  box-shadow: 0 2px 10px rgba(124,58,237,0.3);
 }
 
 /* ===========================================================================
 
    ╔═══════════════════════════════════╗
    ║  P L E A S A N T  (נעים)         ║
-   ║  Autumn forest walk. Warm pastels ║
-   ║  organic shapes, dashed borders,  ║
-   ║  nature energy.                   ║
+   ║  Nature Sketchbook — warm hand-   ║
+   ║  drawn journal. Wobbly borders,   ║
+   ║  watercolor washes, washi-tape    ║
+   ║  badges, organic leaf shapes.     ║
    ╚═══════════════════════════════════╝
 
    =========================================================================== */
@@ -237,6 +357,7 @@ body {
 [data-theme="pleasant"] {
   --font-body: var(--font-varela);
   --font-heading: var(--font-varela);
+  --font-sans: var(--font-varela), system-ui, sans-serif;
   font-family: var(--font-varela), sans-serif;
   --background: #fdf6e8;
   --foreground: #3d2b1f;
@@ -253,88 +374,185 @@ body {
 
 [data-theme="pleasant"] {
   background:
-    radial-gradient(ellipse at 8% 15%, rgba(210,160,80,0.14) 0%, transparent 45%),
-    radial-gradient(ellipse at 92% 80%, rgba(90,122,78,0.12) 0%, transparent 45%),
-    radial-gradient(ellipse at 55% 50%, rgba(193,127,110,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse at 5% 10%, rgba(210,160,80,0.18) 0%, transparent 40%),
+    radial-gradient(ellipse at 95% 85%, rgba(90,122,78,0.15) 0%, transparent 40%),
+    radial-gradient(ellipse at 45% 45%, rgba(193,127,110,0.08) 0%, transparent 55%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23d4956a' stroke-width='0.4' opacity='0.08'%3E%3Ccircle cx='30' cy='30' r='12'/%3E%3C/g%3E%3C/svg%3E"),
     #fdf6e8;
   min-height: 100vh;
 }
 
-/* Header: warm card with nature decoration inside flex layout */
+/* ── Header: kraft-paper card with leaf stickers ── */
 [data-theme="pleasant"] header {
-  background: #fffcf5;
-  border: 2px dashed #c8956a;
-  border-radius: 1.25rem 2rem 1.25rem 2rem;
-  box-shadow: 4px 4px 0 rgba(180,83,9,0.08), 0 8px 24px rgba(180,83,9,0.06);
+  background:
+    linear-gradient(135deg, #fffcf5 0%, #fef5e7 50%, #fdf0dc 100%);
+  border: 2.5px dashed #c8956a;
+  border-radius: 1.25rem 2.5rem 1.25rem 2.5rem;
+  box-shadow:
+    5px 5px 0 rgba(180,83,9,0.07),
+    0 8px 24px rgba(180,83,9,0.05);
   overflow: visible;
   position: relative;
 }
 
-/* Floating leaf stickers — positioned relative to header, won't overflow */
+/* Nature stickers floating above header */
 [data-theme="pleasant"] header::before {
-  content: "🍂  🍁  🍃";
+  content: "🍂  🍁  🌿  🍃";
   position: absolute;
-  top: -0.85rem;
-  right: 1.25rem;
-  font-size: 1.1rem;
+  top: -0.9rem;
+  right: 1rem;
+  font-size: 1.15rem;
+  letter-spacing: 0.25rem;
+  line-height: 1;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+}
+
+/* Bottom-left nature corner */
+[data-theme="pleasant"] header::after {
+  content: "🌱  🦋";
+  position: absolute;
+  bottom: -0.7rem;
+  left: 1.5rem;
+  font-size: 0.95rem;
   letter-spacing: 0.2rem;
   line-height: 1;
   pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
 }
 
+/* Logo: soft circular seed frame */
+[data-theme="pleasant"] header img {
+  border-radius: 50%;
+  background: #fef5e7;
+  border: 2.5px dashed #c8956a;
+  box-shadow: 3px 3px 0 rgba(180,83,9,0.06);
+  padding: 0.2rem;
+}
+
+/* Group info divider */
+[data-theme="pleasant"] header > div:last-child {
+  border-color: #e0c9a8;
+  border-style: dashed;
+}
+
+/* ── Nav: organic pill row with washi-tape feel ── */
 [data-theme="pleasant"] nav {
-  background: #fffcf5;
+  background:
+    linear-gradient(to right, #fffcf5, #fef5e7, #fffcf5);
   border: 2px dashed #c8956a;
   border-radius: 2rem 1rem 2rem 1rem;
-  box-shadow: 3px 3px 0 rgba(180,83,9,0.06);
+  box-shadow: 3px 3px 0 rgba(180,83,9,0.05);
+  position: relative;
 }
 
 [data-theme="pleasant"] nav button {
-  border: 1.5px dashed #c8956a;
+  border: 2px dashed #d4b896;
   border-radius: 9999px;
   background: transparent;
   color: #7c4a1e;
   font-weight: 600;
-  transition: all 0.18s ease;
+  transition: all 0.22s ease;
+  position: relative;
 }
 
 [data-theme="pleasant"] nav button[data-active="true"] {
-  background: #b45309;
+  background: linear-gradient(135deg, #b45309, #d97706);
   color: #fffcf5;
   border-style: solid;
   border-color: #92400e;
-  box-shadow: 2px 2px 0 rgba(146,64,14,0.25);
+  box-shadow: 2px 2px 0 rgba(146,64,14,0.2);
+  transform: rotate(-1deg);
 }
 
 [data-theme="pleasant"] nav button:not([data-active="true"]):hover {
-  background: rgba(180,83,9,0.08);
+  background: rgba(180,83,9,0.07);
   border-style: solid;
+  transform: rotate(0.5deg);
 }
 
+/* ── Stage section: transparent — nature floats freely ── */
 [data-theme="pleasant"] section {
-  background: transparent;
+  background: rgba(255,252,245,0.4);
   border: none;
+  border-radius: 1rem;
   box-shadow: none;
 }
 
-/* Articles: warm cards with organic shapes */
+/* ── Articles: handmade paper cards with alternating shapes ── */
+/* Articles: warm paper cards with organic shapes.
+   Uses longhand background-color (not shorthand background)
+   so inline backgroundColor from the builder can override it. */
 [data-theme="pleasant"] article {
-  background: #fffcf5;
-  border: 1.5px dashed #e0b896;
-  border-radius: 0.5rem 1.5rem 0.5rem 1.5rem;
-  box-shadow: 2px 2px 0 rgba(180,83,9,0.04);
+  background-color: #fffcf5;
+  border-style: dashed;
+  border-width: 2px;
+  border-color: #e0c0a0;
+  border-radius: 0.5rem 2rem 0.5rem 2rem;
+  box-shadow: 3px 3px 0 rgba(180,83,9,0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 [data-theme="pleasant"] article:nth-child(even) {
-  border-radius: 1.5rem 0.5rem 1.5rem 0.5rem;
+  border-radius: 2rem 0.5rem 2rem 0.5rem;
 }
 
+[data-theme="pleasant"] article:nth-child(3n) {
+  border-radius: 1.5rem;
+}
+
+[data-theme="pleasant"] article:hover {
+  transform: rotate(-0.3deg) translateY(-2px);
+  box-shadow: 4px 6px 0 rgba(180,83,9,0.06);
+}
+
+/* ── Tags / badges: washi-tape style — rotated, translucent ── */
+[data-theme="pleasant"] article > span:first-child[class*="absolute"],
+[data-theme="pleasant"] section > span:first-child[class*="absolute"] {
+  background: linear-gradient(135deg, #b45309, #d97706) !important;
+  color: #fffcf5 !important;
+  border: none !important;
+  border-radius: 0.25rem !important;
+  transform: rotate(-3deg);
+  box-shadow: 2px 2px 0 rgba(180,83,9,0.15);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  opacity: 0.92;
+}
+
+/* ── Emoji icons: leaf-shadow treatment ── */
+[data-theme="pleasant"] span[class*="absolute"][class*="text-2xl"],
+[data-theme="pleasant"] span[class*="absolute"][class*="text-3xl"] {
+  filter: drop-shadow(2px 2px 0 rgba(180,83,9,0.12));
+}
+
+/* ── Icon cards: kraft paper with warm shadow ── */
+[data-theme="pleasant"] article[class*="text-center"] {
+  background: #fffcf5;
+  border: 2px dashed #d4b896;
+  border-radius: 1.5rem;
+  box-shadow: 4px 4px 0 rgba(180,83,9,0.06);
+}
+
+[data-theme="pleasant"] article[class*="text-center"] svg {
+  color: #b45309;
+  filter: drop-shadow(2px 2px 0 rgba(180,83,9,0.15));
+}
+
+/* ── InfoCard title chip: nature label ── */
+[data-theme="pleasant"] article[dir="rtl"] > div:first-child > div {
+  border-radius: 0.5rem 1.25rem 0.5rem 1.25rem;
+  border-style: dashed;
+}
+
+/* ── Inputs: dashed organic fields ── */
 [data-theme="pleasant"] input[type="text"],
 [data-theme="pleasant"] textarea {
-  border: 1.5px dashed #c8956a;
+  border: 2px dashed #d4b896;
   border-radius: 9999px;
-  background: rgba(255,252,245,0.8);
+  background: rgba(255,252,245,0.85);
   color: #3d2b1f;
+  transition: all 0.2s ease;
 }
 
 [data-theme="pleasant"] textarea { border-radius: 1rem; }
@@ -345,19 +563,66 @@ body {
   border-color: #b45309;
   outline: none;
   background: #fffcf5;
-  box-shadow: 0 0 0 3px rgba(180,83,9,0.1);
+  box-shadow: 0 0 0 3px rgba(180,83,9,0.1), 3px 3px 0 rgba(180,83,9,0.05);
 }
 
+/* ── Headings: warm earth tones with hand-drawn underline vibe ── */
 [data-theme="pleasant"] h1, [data-theme="pleasant"] h2, [data-theme="pleasant"] h3 {
-  color: #92400e;
-  font-weight: 700;
+  color: #7c2d12;
+  font-weight: 800;
 }
 
+[data-theme="pleasant"] h1 {
+  position: relative;
+}
+
+/* ── Link buttons: organic warm pill ── */
+[data-theme="pleasant"] a[class*="bg-primary"] {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border-radius: 9999px;
+  box-shadow: 3px 3px 0 rgba(146,64,14,0.15);
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+[data-theme="pleasant"] a[class*="bg-primary"]:hover {
+  transform: translateY(-1px) rotate(-0.5deg);
+  box-shadow: 4px 4px 0 rgba(146,64,14,0.2);
+}
+
+/* ── Alert boxes: nature-toned ── */
+[data-theme="pleasant"] div[class*="border-info"] {
+  border-style: dashed;
+  border-radius: 1rem;
+}
+
+[data-theme="pleasant"] div[class*="border-warning"] {
+  border-style: dashed;
+  border-radius: 1rem;
+}
+
+[data-theme="pleasant"] div[class*="border-success"] {
+  border-style: dashed;
+  border-radius: 1rem;
+}
+
+/* ── Footer: matching organic bar ── */
 [data-theme="pleasant"] footer {
-  background: #fffcf5;
+  background:
+    linear-gradient(to right, #fffcf5, #fef5e7, #fffcf5);
   border: 2px dashed #c8956a;
   border-radius: 9999px;
-  box-shadow: 3px 3px 0 rgba(180,83,9,0.06);
+  box-shadow: 3px 3px 0 rgba(180,83,9,0.05);
+}
+
+[data-theme="pleasant"] footer button {
+  border-radius: 9999px;
+}
+
+[data-theme="pleasant"] footer button[class*="bg-primary"] {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border: none;
+  box-shadow: 2px 2px 0 rgba(146,64,14,0.15);
 }
 
 /* ===========================================================================
@@ -374,6 +639,7 @@ body {
 [data-theme="playful"] {
   --font-body: var(--font-karantina);
   --font-heading: var(--font-karantina);
+  --font-sans: var(--font-karantina), system-ui, sans-serif;
   font-family: var(--font-karantina), sans-serif;
   --background: #fef9c3;
   --foreground: #0d0d0d;
@@ -526,7 +792,7 @@ body {
 
 /* Articles: comic panels — alternating rotation for hand-drawn feel */
 [data-theme="playful"] article {
-  background: #ffffff;
+  background-color: #ffffff;
   border: 2.5px solid #0d0d0d;
   border-radius: 0.25rem;
   box-shadow: 3px 3px 0 0 #0d0d0d;
@@ -608,6 +874,7 @@ body {
 [data-theme="subversive"] {
   --font-body: var(--font-rubik);
   --font-heading: var(--font-rubik-dirt);
+  --font-sans: var(--font-rubik), system-ui, sans-serif;
   font-family: var(--font-rubik), sans-serif;
   --background: #111111;
   --foreground: #f0f0f0;
@@ -731,22 +998,22 @@ body {
 [data-theme="subversive"] article {
   border: 3px solid #000;
   border-radius: 0;
-  background: #2a2a2a;
+  background-color: #2a2a2a;
   color: #f0f0f0;
   box-shadow: 5px 5px 0 0 #000;
   transition: transform 0.1s ease;
 }
 
-[data-theme="subversive"] article:nth-child(1)  { transform: rotate(-1.4deg); background: #2a2a2a; }
-[data-theme="subversive"] article:nth-child(2)  { transform: rotate(0.9deg);  background: #1e1e1e; box-shadow: -4px 4px 0 0 #000; }
-[data-theme="subversive"] article:nth-child(3)  { transform: rotate(-0.6deg); background: #2a2a2a; }
-[data-theme="subversive"] article:nth-child(4)  { transform: rotate(1.6deg);  background: #1e1e1e; }
-[data-theme="subversive"] article:nth-child(5)  { transform: rotate(-1.0deg); background: #333; }
-[data-theme="subversive"] article:nth-child(n+6){ transform: rotate(0.5deg);  background: #2a2a2a; }
+[data-theme="subversive"] article:nth-child(1)  { transform: rotate(-1.4deg); background-color: #2a2a2a; }
+[data-theme="subversive"] article:nth-child(2)  { transform: rotate(0.9deg);  background-color: #1e1e1e; box-shadow: -4px 4px 0 0 #000; }
+[data-theme="subversive"] article:nth-child(3)  { transform: rotate(-0.6deg); background-color: #2a2a2a; }
+[data-theme="subversive"] article:nth-child(4)  { transform: rotate(1.6deg);  background-color: #1e1e1e; }
+[data-theme="subversive"] article:nth-child(5)  { transform: rotate(-1.0deg); background-color: #333; }
+[data-theme="subversive"] article:nth-child(n+6){ transform: rotate(0.5deg);  background-color: #2a2a2a; }
 
 /* Some articles get neon accent border */
-[data-theme="subversive"] article:nth-child(3n+1) { border-left: 4px solid #ccff00; }
-[data-theme="subversive"] article:nth-child(3n+2) { border-left: 4px solid #ff2d55; }
+[data-theme="subversive"] article:nth-child(3n+1) { border-right: 4px solid #ccff00; }
+[data-theme="subversive"] article:nth-child(3n+2) { border-right: 4px solid #ff2d55; }
 
 [data-theme="subversive"] article:hover {
   transform: rotate(0deg) scale(1.02) !important;
@@ -807,6 +1074,7 @@ body {
 [data-theme="print"] {
   --font-body: var(--font-frank-ruhl);
   --font-heading: var(--font-david-libre);
+  --font-sans: var(--font-frank-ruhl), serif;
   font-family: var(--font-frank-ruhl), serif;
   --background: #f3efe3;
   --foreground: #1a1714;
@@ -911,7 +1179,7 @@ body {
   border: none;
   border-bottom: 1px solid #c0b8a8;
   border-radius: 0;
-  background: transparent;
+  background-color: transparent;
   box-shadow: none;
   padding: 0.6rem 0;
   position: relative;
@@ -1002,6 +1270,7 @@ body {
 [data-theme="tech"] {
   --font-body: var(--font-handjet);
   --font-heading: var(--font-handjet);
+  --font-sans: var(--font-handjet), var(--font-heebo), monospace;
   font-family: var(--font-handjet), var(--font-heebo), monospace;
   --background: #0d1117;
   --foreground: #00ff41;
@@ -1132,7 +1401,7 @@ body {
   border-radius: 0;
   border: none;
   border-bottom: 1px solid #0f2010;
-  background: transparent;
+  background-color: transparent;
   box-shadow: none;
   font-family: var(--font-handjet), monospace;
   font-size: 0.88rem;
@@ -1211,6 +1480,7 @@ body {
 [data-theme="social"] {
   --font-body: var(--font-open-sans);
   --font-heading: var(--font-open-sans);
+  --font-sans: var(--font-open-sans), system-ui, sans-serif;
   font-family: var(--font-open-sans), sans-serif;
   --background: #f0f2f5;
   --foreground: #050505;
@@ -1315,8 +1585,8 @@ body {
 }
 
 /* ── POST CARDS ── */
-[data-theme="social"] article {
-  background: #ffffff;
+[data-theme="social"] article[data-theme-wrapper="element"] {
+  background-color: #ffffff;
   border: none;
   border-radius: 0.75rem;
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -1326,7 +1596,7 @@ body {
 }
 
 /* Post header: avatar + name + timestamp */
-[data-theme="social"] article::before {
+[data-theme="social"] article[data-theme-wrapper="element"]::before {
   content: "👤  ·  " attr(data-social-time);
   display: block;
   background: #ffffff;
@@ -1338,12 +1608,12 @@ body {
 }
 
 /* Post content area — give it padding */
-[data-theme="social"] article > * {
+[data-theme="social"] article[data-theme-wrapper="element"] > * {
   padding: 0.5rem 1rem;
 }
 
 /* Reaction bar — only on every other article (realistic sparse engagement) */
-[data-theme="social"] article:nth-child(odd)::after {
+[data-theme="social"] article[data-theme-wrapper="element"]:nth-child(odd)::after {
   content: "👍  אהבתי  ·  💬  הגב  ·  ↗  שתף";
   display: block;
   background: #ffffff;
@@ -1387,16 +1657,25 @@ body {
 }
 
 /* ===========================================================================
-   THEMES: formal + tech footer
+
+   ╔═══════════════════════════════════╗
+   ║  F O R M A L  (רשמי)             ║
+   ║  Executive Document — corporate   ║
+   ║  boardroom elegance. Sharp lines, ║
+   ║  navy & gold, serif headings,     ║
+   ║  embossed metallic badges.        ║
+   ╚═══════════════════════════════════╝
+
    =========================================================================== */
 
 [data-theme="formal"] {
-  --font-body: var(--font-arimo);
-  --font-heading: var(--font-frank-ruhl);
-  font-family: var(--font-arimo), sans-serif;
-  --background: #fafaf8;
+  --font-body: var(--font-assistant);
+  --font-heading: var(--font-heebo);
+  --font-sans: var(--font-assistant), system-ui, sans-serif;
+  font-family: var(--font-assistant), sans-serif;
+  --background: #f8f7f4;
   --foreground: #1a1a1a;
-  --surface: #f4f3ef;
+  --surface: #f0efe8;
   --surface-raised: #ffffff;
   --border: #c5b9a8;
   --color-primary: #1e3a5f;
@@ -1407,76 +1686,233 @@ body {
   --color-accent-foreground: #ffffff;
 }
 
+[data-theme="formal"] {
+  background: #f8f7f4;
+  min-height: 100vh;
+}
+
+/* ── Header: executive document header with gold accent stripe ── */
 [data-theme="formal"] header {
   border-radius: 0;
   border: none;
-  border-top: 4px solid #1e3a5f;
+  border-top: 5px solid #1e3a5f;
   border-bottom: 1px solid #c5b9a8;
   box-shadow: none;
-  background: #fafaf8;
+  background: #ffffff;
+  position: relative;
+  overflow: visible;
 }
 
+/* Gold accent line below navy stripe */
+[data-theme="formal"] header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 5%, #b8860b 20%, #d4a017 50%, #b8860b 80%, transparent 95%);
+}
+
+/* Logo: clean rectangular frame with gold border */
+[data-theme="formal"] header img {
+  border-radius: 0.25rem;
+  border: 2px solid #c5b9a8;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  padding: 0.15rem;
+  background: #ffffff;
+}
+
+/* Group info divider: subtle gold */
+[data-theme="formal"] header > div:last-child {
+  border-color: #c5b9a8;
+}
+
+/* ── Nav: clean tab bar with navy bottom border ── */
 [data-theme="formal"] nav {
   border-radius: 0;
   border: none;
   border-bottom: 2px solid #1e3a5f;
-  background: #fafaf8;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 [data-theme="formal"] nav button {
   border-radius: 0;
-  border: 1px solid #c5b9a8;
+  border: 1px solid #d4cdc0;
+  border-bottom: none;
   background: transparent;
+  color: #4a4a4a;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  transition: all 0.15s ease;
+  margin-bottom: -2px;
 }
 
 [data-theme="formal"] nav button[data-active="true"] {
   background: #1e3a5f;
   color: #ffffff;
   border-color: #1e3a5f;
+  box-shadow: 0 -2px 0 #b8860b inset;
 }
 
+[data-theme="formal"] nav button:not([data-active="true"]):hover {
+  background: #f0efe8;
+  border-color: #c5b9a8;
+}
+
+/* ── Stage section: minimal background ── */
 [data-theme="formal"] section {
   border-radius: 0;
   border: none;
+  border-right: 3px solid #1e3a5f;
   background: #fafaf8;
   box-shadow: none;
+  padding-right: 1.25rem;
 }
 
+/* ── Articles: clean bordered cards with subtle left accent ── */
 [data-theme="formal"] article {
-  border: 1px solid #e0d8cc;
+  border: 1px solid #ddd6ca;
+  border-right: 3px solid #b8860b;
   border-radius: 0;
-  background: #fafaf8;
-  box-shadow: none;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: box-shadow 0.15s ease;
 }
 
+[data-theme="formal"] article:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+/* Every other article: navy right accent instead of gold */
+[data-theme="formal"] article:nth-child(even) {
+  border-right-color: #1e3a5f;
+}
+
+/* ── Tags / badges: embossed metallic look ── */
+[data-theme="formal"] article > span:first-child[class*="absolute"],
+[data-theme="formal"] section > span:first-child[class*="absolute"] {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2c5282 100%) !important;
+  color: #f0d78c !important;
+  border: 1px solid #b8860b !important;
+  border-radius: 0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+
+/* ── Emoji icons: minimal, no filter ── */
+[data-theme="formal"] span[class*="absolute"][class*="text-2xl"],
+[data-theme="formal"] span[class*="absolute"][class*="text-3xl"] {
+  opacity: 0.85;
+}
+
+/* ── Icon cards: clean centered card ── */
+[data-theme="formal"] article[class*="text-center"] {
+  background: #ffffff;
+  border: 1px solid #ddd6ca;
+  border-right: 3px solid #b8860b;
+  border-radius: 0;
+}
+
+[data-theme="formal"] article[class*="text-center"] svg {
+  color: #1e3a5f;
+}
+
+/* ── InfoCard title chip: formal label style ── */
+[data-theme="formal"] article[dir="rtl"] > div:first-child > div {
+  border-radius: 0.15rem;
+  border-width: 1px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ── Inputs: sharp-cornered executive fields ── */
 [data-theme="formal"] input[type="text"],
 [data-theme="formal"] textarea {
   border: 1px solid #c5b9a8;
   border-radius: 0;
   background: #ffffff;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
 }
 
 [data-theme="formal"] input[type="text"]:focus,
 [data-theme="formal"] textarea:focus {
   outline: none;
   border-color: #1e3a5f;
-  box-shadow: 0 0 0 2px rgba(30,58,95,0.12);
+  box-shadow: 0 0 0 2px rgba(30,58,95,0.1);
 }
 
+/* ── Headings: serif, navy, with formal spacing ── */
 [data-theme="formal"] h1, [data-theme="formal"] h2, [data-theme="formal"] h3 {
-  font-family: var(--font-frank-ruhl), serif;
+  font-family: var(--font-heebo), sans-serif;
   font-weight: 700;
   color: #1e3a5f;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 
+[data-theme="formal"] h1 {
+  font-size: 1.65rem;
+  border-bottom: 2px solid #b8860b;
+  padding-bottom: 0.4rem;
+  display: inline-block;
+}
+
+/* ── Link buttons: navy rectangle with gold hover ── */
+[data-theme="formal"] a[class*="bg-primary"] {
+  background: #1e3a5f;
+  border-radius: 0;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: all 0.15s ease;
+}
+
+[data-theme="formal"] a[class*="bg-primary"]:hover {
+  background: #2c5282;
+  box-shadow: 0 0 0 2px #b8860b, 0 2px 6px rgba(0,0,0,0.12);
+}
+
+/* ── Alert boxes: formal borders ── */
+[data-theme="formal"] div[class*="rounded-lg"][class*="border"] {
+  border-radius: 0;
+}
+
+/* ── Lists: refined spacing ── */
+[data-theme="formal"] ul, [data-theme="formal"] ol {
+  padding-right: 1.25rem;
+}
+
+/* ── Footer: executive bar with navy top rule ── */
 [data-theme="formal"] footer {
   border-radius: 0;
-  border: 1px solid #c5b9a8;
-  background: #fafaf8;
+  border: none;
+  border-top: 2px solid #1e3a5f;
+  background: #ffffff;
   box-shadow: none;
+}
+
+[data-theme="formal"] footer button {
+  border-radius: 0;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+[data-theme="formal"] footer button[class*="bg-primary"] {
+  background: #1e3a5f;
+  border: none;
+}
+
+[data-theme="formal"] footer button[class*="bg-primary"]:hover {
+  background: #2c5282;
 }

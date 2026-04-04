@@ -4,12 +4,10 @@ import { useMemo } from "react";
 import { AlertElement } from "@/components/elements/display/AlertElement";
 import { CardBuilderElement } from "@/components/elements/complex/CardBuilderElement";
 import { InfoCardElement } from "@/components/elements/display/InfoCardElement";
-import { OptionsBuilderElement } from "@/components/elements/complex/OptionsBuilderElement";
 import { PitchElement } from "@/components/elements/complex/PitchElement";
 import { PositionPaperElement } from "@/components/elements/complex/PositionPaperElement";
 import { ResearchBlockElement } from "@/components/elements/complex/ResearchBlockElement";
 import { HeadingElement } from "@/components/elements/display/HeadingElement";
-import { HeroElement } from "@/components/elements/display/HeroElement";
 import { IconCardElement } from "@/components/elements/display/IconCardElement";
 import { ImageElement } from "@/components/elements/display/ImageElement";
 import { LinkButtonElement } from "@/components/elements/display/LinkButtonElement";
@@ -32,6 +30,13 @@ interface ElementRendererProps {
   groupMembers?: string[];
   groupName?: string;
   hackathonName?: string;
+  themeMeta?: {
+    elementIndex?: number;
+    containerIndex?: number;
+    columnIndex?: number;
+    socialTime?: string;
+    printTag?: string;
+  };
   onValueSaved: (value: GroupValue) => void;
 }
 
@@ -119,6 +124,7 @@ export function ElementRenderer({
   groupMembers = [],
   groupName = "",
   hackathonName = "",
+  themeMeta,
   onValueSaved,
 }: ElementRendererProps) {
   const supabase = useMemo(() => createClient(), []);
@@ -150,7 +156,8 @@ export function ElementRenderer({
     }
   };
 
-  switch (element.type) {
+  const content = (() => {
+    switch (element.type) {
     case "heading": {
       const text = asString(element.config.text);
       const level =
@@ -196,16 +203,6 @@ export function ElementRenderer({
       return <VideoElement youtubeId={youtubeId} />;
     }
 
-    case "hero": {
-      const title = asString(element.config.title);
-      const subtitle = asString(element.config.subtitle);
-      const align =
-        element.config.align === "center" || element.config.align === "right"
-          ? element.config.align
-          : "right";
-      return <HeroElement title={title} subtitle={subtitle} align={align} />;
-    }
-
     case "alert": {
       const type =
         element.config.type === "warning" || element.config.type === "success"
@@ -216,9 +213,9 @@ export function ElementRenderer({
     }
 
     case "list": {
-      const items = asStringArray(element.config.items);
+      const listItems = asStringArray(element.config.listItems ?? element.config.items);
       const style = element.config.style === "numbers" ? "numbers" : "bullets";
-      return <ListElement items={items} style={style} />;
+      return <ListElement listItems={listItems} style={style} />;
     }
 
     case "info-card": {
@@ -404,23 +401,26 @@ export function ElementRenderer({
       );
     }
 
-    case "options_builder": {
-      const value = asRecordArray(groupValue?.value).map((row) => ({
-        title: asString(row.title),
-        subtitle: asString(row.subtitle),
-        content: asString(row.content),
-      }));
-      return (
-        <OptionsBuilderElement
-          addButtonText={asString(element.config.addButtonText)}
-          optionTitlePrefix={asString(element.config.optionTitlePrefix)}
-          value={value}
-          onSave={saveInputValue}
-        />
-      );
-    }
-
     default:
       return null;
+    }
+  })();
+
+  if (!content) {
+    return null;
   }
+
+  return (
+    <article
+      data-theme-wrapper="element"
+      data-element-index={themeMeta?.elementIndex}
+      data-container-index={themeMeta?.containerIndex}
+      data-column-index={themeMeta?.columnIndex}
+      data-social-time={themeMeta?.socialTime}
+      data-print-tag={themeMeta?.printTag}
+      className="relative overflow-visible"
+    >
+      {content}
+    </article>
+  );
 }

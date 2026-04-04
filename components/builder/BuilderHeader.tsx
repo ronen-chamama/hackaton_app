@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Copy, Eye, Pencil, Redo2, Undo2, X } from "lucide-react";
 import { t } from "@/lib/i18n";
 
@@ -8,9 +9,10 @@ interface BuilderHeaderProps {
   hackathonId: string;
   title: string;
   description: string;
+  isTemplate: boolean;
   isSavingTemplate: boolean;
   isUpdatingHackathonSettings: boolean;
-  onSaveAsTemplate: () => void;
+  onSaveAsTemplate: () => Promise<{ ok: true; id: string } | { ok: false }>;
   onUpdateHackathonSettings: (title: string, description: string) => Promise<boolean>;
   canUndo: boolean;
   canRedo: boolean;
@@ -22,6 +24,7 @@ export function BuilderHeader({
   hackathonId,
   title,
   description,
+  isTemplate,
   isSavingTemplate,
   isUpdatingHackathonSettings,
   onSaveAsTemplate,
@@ -31,7 +34,9 @@ export function BuilderHeader({
   onUndo,
   onRedo,
 }: BuilderHeaderProps) {
+  const router = useRouter();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [hasSavedTemplate, setHasSavedTemplate] = useState(false);
   const [titleDraft, setTitleDraft] = useState(title);
   const [descriptionDraft, setDescriptionDraft] = useState(description);
 
@@ -45,6 +50,18 @@ export function BuilderHeader({
     const ok = await onUpdateHackathonSettings(nextTitle, nextDescription);
     if (ok) {
       setIsEditOpen(false);
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (isTemplate || hasSavedTemplate || isSavingTemplate) {
+      return;
+    }
+
+    const result = await onSaveAsTemplate();
+    if (result.ok) {
+      setHasSavedTemplate(true);
+      router.push(`/admin/builder/${result.id}`);
     }
   };
 
@@ -100,15 +117,21 @@ export function BuilderHeader({
             <Eye className="h-4 w-4" />
             {t("preview")}
           </a>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-70"
-            disabled={isSavingTemplate}
-            onClick={onSaveAsTemplate}
-          >
-            <Copy className="h-4 w-4" />
-            {t("saveAsTemplate")}
-          </button>
+          {!isTemplate ? (
+            <button
+              type="button"
+              className={`inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium ${
+                hasSavedTemplate
+                  ? "cursor-not-allowed bg-gray-300 text-gray-600 opacity-50"
+                  : "bg-primary text-primary-foreground"
+              } disabled:cursor-not-allowed disabled:opacity-70`}
+              disabled={isSavingTemplate || hasSavedTemplate}
+              onClick={handleSaveAsTemplate}
+            >
+              <Copy className="h-4 w-4" />
+              {hasSavedTemplate ? t("savedAsTemplate") : t("saveAsTemplate")}
+            </button>
+          ) : null}
         </div>
       </div>
       {isEditOpen ? (

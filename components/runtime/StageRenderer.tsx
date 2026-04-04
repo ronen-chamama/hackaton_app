@@ -2,7 +2,17 @@ import type { CSSProperties } from "react";
 import { ElementRenderer } from "@/components/elements/ElementRenderer";
 import { t } from "@/lib/i18n";
 import type { Element, GroupValueMap, Stage } from "@/lib/types";
-import { asTagPosition, asTagSize, getTagPositionClasses, getTagSizeClasses } from "@/lib/utils/tag";
+import {
+  asTagBorderStyle,
+  asTagBorderWidth,
+  asTagPosition,
+  asTagShape,
+  asTagSize,
+  getTagInlineStyle,
+  getTagPositionClasses,
+  getTagShapeClasses,
+  getTagSizeClasses,
+} from "@/lib/utils/tag";
 
 interface StageRendererProps {
   stage: Stage | null;
@@ -36,9 +46,10 @@ const PRINT_TAGS = [
 ] as const;
 
 function getBorderClass(border?: string): string {
-  if (border === "dashed") return "border-dashed";
-  if (border === "none") return "border-transparent";
-  return "border-solid";
+  if (border === "dashed") return "border border-dashed border-border";
+  if (border === "solid") return "border border-solid border-border";
+  if (border === "none") return "border border-transparent";
+  return "";
 }
 
 function getShadowClass(shadow?: string): string {
@@ -87,10 +98,22 @@ function asLayoutSettings(value: unknown): {
     | "top-center"
     | "bottom-center";
   tagSize?: "small" | "medium" | "large";
+  tagBgColor?: string;
+  tagTextColor?: string;
+  tagBorderStyle?: "solid" | "dashed" | "dotted";
+  tagBorderWidth?: "0px" | "1px" | "2px" | "4px";
+  tagShape?: "square" | "rounded" | "pill";
   emojiIcon?: string;
   backgroundColor?: string;
   borderColor?: string;
   borderWidth?: number | string;
+  enableCustomWrapper?: boolean;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  boxShadow?: "none" | "sm" | "md" | "lg";
+  radiusTR?: number;
+  radiusTL?: number;
+  radiusBR?: number;
+  radiusBL?: number;
 } {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -100,6 +123,11 @@ function asLayoutSettings(value: unknown): {
     badge: typeof input.badge === "string" ? input.badge : "",
     tagPosition: asTagPosition(input.tagPosition),
     tagSize: asTagSize(input.tagSize),
+    tagBgColor: typeof input.tagBgColor === "string" ? input.tagBgColor : "",
+    tagTextColor: typeof input.tagTextColor === "string" ? input.tagTextColor : "",
+    tagBorderStyle: asTagBorderStyle(input.tagBorderStyle),
+    tagBorderWidth: asTagBorderWidth(input.tagBorderWidth),
+    tagShape: asTagShape(input.tagShape),
     emojiIcon: typeof input.emojiIcon === "string" ? input.emojiIcon : "",
     backgroundColor:
       typeof input.backgroundColor === "string" ? input.backgroundColor : "",
@@ -108,6 +136,21 @@ function asLayoutSettings(value: unknown): {
       typeof input.borderWidth === "number" || typeof input.borderWidth === "string"
         ? input.borderWidth
         : undefined,
+    enableCustomWrapper: input.enableCustomWrapper === true,
+    borderStyle:
+      input.borderStyle === "solid" ||
+      input.borderStyle === "dashed" ||
+      input.borderStyle === "dotted"
+        ? input.borderStyle
+        : undefined,
+    boxShadow:
+      input.boxShadow === "sm" || input.boxShadow === "md" || input.boxShadow === "lg"
+        ? input.boxShadow
+        : "none",
+    radiusTR: typeof input.radiusTR === "number" ? input.radiusTR : undefined,
+    radiusTL: typeof input.radiusTL === "number" ? input.radiusTL : undefined,
+    radiusBR: typeof input.radiusBR === "number" ? input.radiusBR : undefined,
+    radiusBL: typeof input.radiusBL === "number" ? input.radiusBL : undefined,
   };
 }
 
@@ -122,13 +165,18 @@ function hasVisibleBackground(settings: {
 function hasStructuralChrome(settings: {
   backgroundColor?: string;
   borderWidth?: number | string;
+  enableCustomWrapper?: boolean;
 }): boolean {
+  if (!settings.enableCustomWrapper) {
+    return false;
+  }
   return hasVisibleBackground(settings) || hasVisibleBorderWidth(settings.borderWidth);
 }
 
 function getStructuralPaddingClass(settings: {
   backgroundColor?: string;
   borderWidth?: number | string;
+  enableCustomWrapper?: boolean;
 }): string {
   return hasStructuralChrome(settings) ? "rounded-md p-4" : "";
 }
@@ -137,7 +185,16 @@ function getStructuralStyle(settings: {
   backgroundColor?: string;
   borderColor?: string;
   borderWidth?: number | string;
+  enableCustomWrapper?: boolean;
+  borderStyle?: "solid" | "dashed" | "dotted";
+  radiusTR?: number;
+  radiusTL?: number;
+  radiusBR?: number;
+  radiusBL?: number;
 }) {
+  if (!settings.enableCustomWrapper) {
+    return {};
+  }
   const normalizedBorderWidth = normalizeBorderWidth(settings.borderWidth);
   const hasVisibleBorder = Boolean(normalizedBorderWidth);
 
@@ -145,8 +202,29 @@ function getStructuralStyle(settings: {
     backgroundColor: settings.backgroundColor || undefined,
     borderColor: settings.borderColor || undefined,
     borderWidth: normalizedBorderWidth,
-    borderStyle: hasVisibleBorder ? "solid" : undefined,
+    borderStyle: settings.borderStyle || (hasVisibleBorder ? "solid" : undefined),
+    borderTopRightRadius:
+      typeof settings.radiusTR === "number" ? `${settings.radiusTR}px` : undefined,
+    borderTopLeftRadius:
+      typeof settings.radiusTL === "number" ? `${settings.radiusTL}px` : undefined,
+    borderBottomRightRadius:
+      typeof settings.radiusBR === "number" ? `${settings.radiusBR}px` : undefined,
+    borderBottomLeftRadius:
+      typeof settings.radiusBL === "number" ? `${settings.radiusBL}px` : undefined,
   };
+}
+
+function getStructuralShadowClass(settings: {
+  boxShadow?: "none" | "sm" | "md" | "lg";
+  enableCustomWrapper?: boolean;
+}): string {
+  if (!settings.enableCustomWrapper) {
+    return "";
+  }
+  if (settings.boxShadow === "sm") return "shadow-sm";
+  if (settings.boxShadow === "md") return "shadow-md";
+  if (settings.boxShadow === "lg") return "shadow-lg";
+  return "";
 }
 
 function getContainerRows(container: Stage["containers"][number]) {
@@ -174,6 +252,39 @@ function getContainerRows(container: Stage["containers"][number]) {
   return [];
 }
 
+function getViewStructuralProps(settingsValue: unknown) {
+  const settings = asLayoutSettings(settingsValue ?? {});
+  if (!settings.enableCustomWrapper) {
+    return {
+      settings,
+      structuralStyles: {} satisfies CSSProperties,
+      paddingClass: "",
+    };
+  }
+  const normalizedBorderWidth = normalizeBorderWidth(settings.borderWidth);
+  const hasBorder = Boolean(normalizedBorderWidth && normalizedBorderWidth !== "0px");
+  const hasBackground = hasVisibleBackground(settings);
+
+  return {
+    settings,
+    structuralStyles: {
+      backgroundColor: settings.backgroundColor || undefined,
+      borderColor: settings.borderColor || undefined,
+      borderWidth: hasBorder ? normalizedBorderWidth : undefined,
+      borderStyle: settings.borderStyle || (hasBorder ? "solid" : undefined),
+      borderTopRightRadius:
+        typeof settings.radiusTR === "number" ? `${settings.radiusTR}px` : undefined,
+      borderTopLeftRadius:
+        typeof settings.radiusTL === "number" ? `${settings.radiusTL}px` : undefined,
+      borderBottomRightRadius:
+        typeof settings.radiusBR === "number" ? `${settings.radiusBR}px` : undefined,
+      borderBottomLeftRadius:
+        typeof settings.radiusBL === "number" ? `${settings.radiusBL}px` : undefined,
+    } satisfies CSSProperties,
+    paddingClass: hasBorder || hasBackground ? "p-4 rounded-md" : "",
+  };
+}
+
 function getRowGridStyle(columnCount: number) {
   return {
     gridTemplateColumns: `repeat(${Math.max(columnCount, 1)}, minmax(0, 1fr))`,
@@ -199,21 +310,26 @@ export function StageRenderer({
 
   return (
     <section
-      className="relative overflow-visible space-y-4 rounded-xl border border-border bg-surface-raised p-4 shadow-sm"
+      className={`relative overflow-visible space-y-4 rounded-xl border border-border bg-surface-raised p-4 shadow-sm ${getStructuralShadowClass(
+        stageSettings
+      )}`}
       style={{
-        backgroundColor: stageSettings.backgroundColor || undefined,
-        borderColor: stageSettings.borderColor || undefined,
-        borderWidth:
-          typeof stageSettings.borderWidth === "number"
-            ? `${stageSettings.borderWidth}px`
-            : undefined,
+        ...getStructuralStyle(stageSettings),
       }}
     >
       {stageSettings.badge ? (
         <span
-          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+          className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
             asTagPosition(stageSettings.tagPosition)
-          )} ${getTagSizeClasses(asTagSize(stageSettings.tagSize))}`}
+          )} ${getTagSizeClasses(asTagSize(stageSettings.tagSize))} ${getTagShapeClasses(
+            asTagShape(stageSettings.tagShape)
+          )}`}
+          style={getTagInlineStyle({
+            backgroundColor: stageSettings.tagBgColor,
+            textColor: stageSettings.tagTextColor,
+            borderStyle: asTagBorderStyle(stageSettings.tagBorderStyle),
+            borderWidth: asTagBorderWidth(stageSettings.tagBorderWidth),
+          })}
         >
           {stageSettings.badge}
         </span>
@@ -230,14 +346,25 @@ export function StageRenderer({
             <div
           key={container.id}
           data-renderer="container"
-          className={`relative overflow-visible ${getStructuralPaddingClass(containerSettings)}`}
+          {...(hasStructuralChrome(containerSettings) ? { "data-custom-wrapper": "" } : {})}
+          className={`relative overflow-visible ${getStructuralPaddingClass(
+            containerSettings
+          )} ${getStructuralShadowClass(containerSettings)}`}
           style={getStructuralStyle(containerSettings)}
         >
           {containerSettings.badge ? (
             <span
-              className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+              className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
                 asTagPosition(containerSettings.tagPosition)
-              )} ${getTagSizeClasses(asTagSize(containerSettings.tagSize))}`}
+              )} ${getTagSizeClasses(asTagSize(containerSettings.tagSize))} ${getTagShapeClasses(
+                asTagShape(containerSettings.tagShape)
+              )}`}
+              style={getTagInlineStyle({
+                backgroundColor: containerSettings.tagBgColor,
+                textColor: containerSettings.tagTextColor,
+                borderStyle: asTagBorderStyle(containerSettings.tagBorderStyle),
+                borderWidth: asTagBorderWidth(containerSettings.tagBorderWidth),
+              })}
             >
               {containerSettings.badge}
             </span>
@@ -249,32 +376,37 @@ export function StageRenderer({
           ) : null}
           <div className="flex flex-col gap-4">
             {getContainerRows(container).map((row) => {
-              const rowSettings = asLayoutSettings(row.settings ?? {});
-              const rowBorderWidth = normalizeBorderWidth(rowSettings.borderWidth);
-              const hasRowChrome =
-                hasVisibleBackground(rowSettings) ||
-                Boolean(rowBorderWidth);
+              const {
+                settings: rowSettings,
+                structuralStyles: rowStructuralStyles,
+                paddingClass: rowPaddingClass,
+              } = getViewStructuralProps(row.settings || {});
               const rowStyle = {
                 ...getRowGridStyle(row.columns.length),
-                backgroundColor: rowSettings.backgroundColor || undefined,
-                borderColor: rowSettings.borderColor || undefined,
-                borderWidth: rowBorderWidth,
-                borderStyle: rowBorderWidth ? "solid" : undefined,
+                ...rowStructuralStyles,
               } satisfies CSSProperties;
 
               return (
                 <div
                   key={row.id}
-                  className={`relative overflow-visible grid items-start gap-4 ${
-                    hasRowChrome ? "rounded-md p-4" : ""
-                  }`}
+                  className={`relative overflow-visible grid items-start gap-4 ${rowPaddingClass} ${getStructuralShadowClass(
+                    rowSettings
+                  )}`}
                   style={rowStyle}
                 >
                   {rowSettings.badge ? (
                     <span
-                      className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+                      className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
                         asTagPosition(rowSettings.tagPosition)
-                      )} ${getTagSizeClasses(asTagSize(rowSettings.tagSize))}`}
+                      )} ${getTagSizeClasses(asTagSize(rowSettings.tagSize))} ${getTagShapeClasses(
+                        asTagShape(rowSettings.tagShape)
+                      )}`}
+                      style={getTagInlineStyle({
+                        backgroundColor: rowSettings.tagBgColor,
+                        textColor: rowSettings.tagTextColor,
+                        borderStyle: asTagBorderStyle(rowSettings.tagBorderStyle),
+                        borderWidth: asTagBorderWidth(rowSettings.tagBorderWidth),
+                      })}
                     >
                       {rowSettings.badge}
                     </span>
@@ -286,32 +418,35 @@ export function StageRenderer({
                   ) : null}
                   {row.columns.map((column, columnIndex) => (
                   (() => {
-                    const columnSettings = asLayoutSettings(column.settings ?? {});
-                    const columnBorderWidth = normalizeBorderWidth(columnSettings.borderWidth);
-                    const hasColumnChrome =
-                      hasVisibleBackground(columnSettings) ||
-                      Boolean(columnBorderWidth);
-                    const columnStyle = {
-                      backgroundColor: columnSettings.backgroundColor || undefined,
-                      borderColor: columnSettings.borderColor || undefined,
-                      borderWidth: columnBorderWidth,
-                      borderStyle: columnBorderWidth ? "solid" : undefined,
-                    } satisfies CSSProperties;
+                    const {
+                      settings: columnSettings,
+                      structuralStyles: columnStructuralStyles,
+                      paddingClass: columnPaddingClass,
+                    } = getViewStructuralProps(column.settings || {});
 
                     return (
                       <div
                     key={column.id}
                     data-renderer="column"
-                    className={`relative overflow-visible flex w-full min-w-0 flex-col gap-4 ${
-                      hasColumnChrome ? "rounded-md p-4" : ""
-                    }`}
-                    style={columnStyle}
+                    {...(columnSettings.enableCustomWrapper ? { "data-custom-wrapper": "" } : {})}
+                    className={`relative flex min-w-0 flex-col gap-4 overflow-visible ${columnPaddingClass} ${getStructuralShadowClass(
+                      columnSettings
+                    )}`}
+                    style={columnStructuralStyles}
                   >
                     {columnSettings.badge ? (
                       <span
-                        className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+                        className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
                           asTagPosition(columnSettings.tagPosition)
-                        )} ${getTagSizeClasses(asTagSize(columnSettings.tagSize))}`}
+                        )} ${getTagSizeClasses(asTagSize(columnSettings.tagSize))} ${getTagShapeClasses(
+                          asTagShape(columnSettings.tagShape)
+                        )}`}
+                        style={getTagInlineStyle({
+                          backgroundColor: columnSettings.tagBgColor,
+                          textColor: columnSettings.tagTextColor,
+                          borderStyle: asTagBorderStyle(columnSettings.tagBorderStyle),
+                          borderWidth: asTagBorderWidth(columnSettings.tagBorderWidth),
+                        })}
                       >
                         {columnSettings.badge}
                       </span>
@@ -331,6 +466,17 @@ export function StageRenderer({
                       : "";
                   const tagPosition = asTagPosition(elementRecord.tagPosition);
                   const tagSize = asTagSize(elementRecord.tagSize);
+                  const tagBgColor =
+                    typeof elementRecord.tagBgColor === "string"
+                      ? elementRecord.tagBgColor
+                      : "";
+                  const tagTextColor =
+                    typeof elementRecord.tagTextColor === "string"
+                      ? elementRecord.tagTextColor
+                      : "";
+                  const tagBorderStyle = asTagBorderStyle(elementRecord.tagBorderStyle);
+                  const tagBorderWidth = asTagBorderWidth(elementRecord.tagBorderWidth);
+                  const tagShape = asTagShape(elementRecord.tagShape);
                   const emojiIcon =
                     typeof elementRecord.emojiIcon === "string"
                       ? elementRecord.emojiIcon
@@ -377,29 +523,42 @@ export function StageRenderer({
                   const printTag = elementIndex % 3 !== 2 ? t(printTagKey) : "";
 
                   return (
-                    <article
+                    <div
                       key={`${element.id}:${groupValues[element.id]?.updated_at ?? "base"}`}
-                      data-element-index={elementIndex}
-                      data-container-index={containerIndex}
-                      data-column-index={columnIndex}
-                      data-social-time={socialTime}
-                      data-print-tag={printTag}
-                      className={`relative overflow-visible rounded border px-2 py-2 text-xs ${getBorderClass(border)} ${getShadowClass(shadow)} border-border bg-background`}
+                      className={`relative overflow-visible rounded px-2 py-2 text-xs ${getBorderClass(
+                        border
+                      )} ${getShadowClass(shadow)}`}
                       style={{
                         color: textColor || undefined,
                         backgroundColor: backgroundColor || undefined,
+                        borderStyle:
+                          border === "dashed" || border === "solid"
+                            ? border
+                            : border === "none"
+                              ? "solid"
+                              : typeof elementBorderWidth === "number"
+                                ? "solid"
+                                : undefined,
                         borderWidth:
                           typeof elementBorderWidth === "number"
                             ? `${elementBorderWidth}px`
+                            : border && border !== "none"
+                              ? "1px"
                             : undefined,
                         borderColor: elementBorderColor || undefined,
                       }}
-                      >
+                    >
                       {badgeText ? (
                         <span
-                          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+                          className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
                             tagPosition
-                          )} ${getTagSizeClasses(tagSize)}`}
+                          )} ${getTagSizeClasses(tagSize)} ${getTagShapeClasses(tagShape)}`}
+                          style={getTagInlineStyle({
+                            backgroundColor: tagBgColor,
+                            textColor: tagTextColor,
+                            borderStyle: tagBorderStyle,
+                            borderWidth: tagBorderWidth,
+                          })}
                         >
                           {badgeText}
                         </span>
@@ -419,9 +578,16 @@ export function StageRenderer({
                         groupMembers={groupMembers}
                         groupName={groupName}
                         hackathonName={hackathonName}
+                        themeMeta={{
+                          elementIndex,
+                          containerIndex,
+                          columnIndex,
+                          socialTime,
+                          printTag,
+                        }}
                         onValueSaved={onValueSaved}
                       />
-                    </article>
+                    </div>
                   );
                     })}
                       </div>

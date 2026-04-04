@@ -13,7 +13,17 @@ import { ChevronDown, ChevronLeft, Copy, Settings } from "lucide-react";
 import { t } from "@/lib/i18n";
 import type { DictionaryKey } from "@/lib/i18n";
 import type { HackathonDefinition, LayoutSettings } from "@/lib/types";
-import { asTagPosition, asTagSize, getTagPositionClasses, getTagSizeClasses } from "@/lib/utils/tag";
+import {
+  asTagBorderStyle,
+  asTagBorderWidth,
+  asTagPosition,
+  asTagShape,
+  asTagSize,
+  getTagInlineStyle,
+  getTagPositionClasses,
+  getTagShapeClasses,
+  getTagSizeClasses,
+} from "@/lib/utils/tag";
 import { SortableElementBlock } from "./SortableElementBlock";
 
 interface SelectedElementRef {
@@ -73,17 +83,40 @@ function toElementDragId(
   return `element:${stageId}:${containerId}:${rowId}:${columnId}:${elementId}`;
 }
 
+function isCustomWrapperEnabled(settings?: LayoutSettings): boolean {
+  return Boolean(settings?.enableCustomWrapper);
+}
+
 function getNodeStyle(settings?: LayoutSettings): CSSProperties {
-  const hasVisibleBorder =
-    (typeof settings?.borderWidth === "number" && settings.borderWidth > 0) ||
-    Boolean(settings?.borderColor?.trim());
+  if (!isCustomWrapperEnabled(settings)) {
+    return {};
+  }
+  const hasVisibleBorder = typeof settings?.borderWidth === "number" && settings.borderWidth > 0;
   return {
     backgroundColor: settings?.backgroundColor || undefined,
     borderColor: settings?.borderColor || undefined,
     borderWidth:
       typeof settings?.borderWidth === "number" ? `${settings.borderWidth}px` : undefined,
-    borderStyle: hasVisibleBorder ? "solid" : undefined,
+    borderStyle: settings?.borderStyle || (hasVisibleBorder ? "solid" : undefined),
+    borderTopRightRadius:
+      typeof settings?.radiusTR === "number" ? `${settings.radiusTR}px` : undefined,
+    borderTopLeftRadius:
+      typeof settings?.radiusTL === "number" ? `${settings.radiusTL}px` : undefined,
+    borderBottomRightRadius:
+      typeof settings?.radiusBR === "number" ? `${settings.radiusBR}px` : undefined,
+    borderBottomLeftRadius:
+      typeof settings?.radiusBL === "number" ? `${settings.radiusBL}px` : undefined,
   };
+}
+
+function getNodeShadowClass(settings?: LayoutSettings): string {
+  if (!isCustomWrapperEnabled(settings)) {
+    return "";
+  }
+  if (settings?.boxShadow === "sm") return "shadow-sm";
+  if (settings?.boxShadow === "md") return "shadow-md";
+  if (settings?.boxShadow === "lg") return "shadow-lg";
+  return "";
 }
 
 function hasVisibleBackground(settings?: LayoutSettings): boolean {
@@ -92,11 +125,27 @@ function hasVisibleBackground(settings?: LayoutSettings): boolean {
 }
 
 function hasStructuralChrome(settings?: LayoutSettings): boolean {
+  if (!isCustomWrapperEnabled(settings)) {
+    return false;
+  }
   return hasVisibleBackground(settings) || (typeof settings?.borderWidth === "number" && settings.borderWidth > 0);
 }
 
 function getEditModePaddingClass(settings?: LayoutSettings): string {
-  return hasStructuralChrome(settings) ? "p-4" : "p-3";
+  return hasStructuralChrome(settings) ? "p-4" : "";
+}
+
+function getStructuralStyles(settings?: LayoutSettings): {
+  style: CSSProperties;
+  className: string;
+} {
+  const classParts = [getEditModePaddingClass(settings), getNodeShadowClass(settings)].filter(
+    Boolean
+  );
+  return {
+    style: getNodeStyle(settings),
+    className: classParts.join(" "),
+  };
 }
 
 function ColumnBlock({
@@ -151,28 +200,36 @@ function ColumnBlock({
   const badge = settings?.badge?.trim() ?? "";
   const tagPosition = asTagPosition(settings?.tagPosition);
   const tagSize = asTagSize(settings?.tagSize);
+  const tagShape = asTagShape(settings?.tagShape);
   const emojiIcon = settings?.emojiIcon?.trim() ?? "";
   const hasElements = column.elements.length > 0;
+  const structural = getStructuralStyles(settings);
 
   return (
     <div
       ref={setNodeRef}
-      className={`relative overflow-visible flex flex-1 flex-col gap-4 rounded-md border-2 border-dashed ${
-        isOver ? "border-primary bg-primary/5" : "border-border bg-transparent"
-      } ${getEditModePaddingClass(settings)} ${
-        isDragging ? "opacity-70" : ""
-      } ${hasElements ? "min-h-0" : "min-h-[2rem]"}`}
+      className={`relative overflow-visible flex w-full min-w-0 flex-1 flex-col gap-4 ${
+        isOver ? "rounded-md bg-primary/5 ring-1 ring-primary/60 p-2" : ""
+      } ${isDragging ? "opacity-70" : ""} ${hasElements ? "min-h-0" : "min-h-[2rem]"} ${
+        structural.className
+      }`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        ...getNodeStyle(settings),
+        ...structural.style,
       }}
     >
       {badge ? (
         <span
-          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+          className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
             tagPosition
-          )} ${getTagSizeClasses(tagSize)}`}
+          )} ${getTagSizeClasses(tagSize)} ${getTagShapeClasses(tagShape)}`}
+          style={getTagInlineStyle({
+            backgroundColor: settings?.tagBgColor,
+            textColor: settings?.tagTextColor,
+            borderStyle: asTagBorderStyle(settings?.tagBorderStyle),
+            borderWidth: asTagBorderWidth(settings?.tagBorderWidth),
+          })}
         >
           {badge}
         </span>
@@ -244,6 +301,19 @@ function ColumnBlock({
                   badgeText={typeof elementRecord.badgeText === "string" ? elementRecord.badgeText : ""}
                   tagPosition={typeof elementRecord.tagPosition === "string" ? elementRecord.tagPosition : ""}
                   tagSize={typeof elementRecord.tagSize === "string" ? elementRecord.tagSize : ""}
+                  tagBgColor={typeof elementRecord.tagBgColor === "string" ? elementRecord.tagBgColor : ""}
+                  tagTextColor={typeof elementRecord.tagTextColor === "string" ? elementRecord.tagTextColor : ""}
+                  tagBorderStyle={
+                    typeof elementRecord.tagBorderStyle === "string"
+                      ? elementRecord.tagBorderStyle
+                      : ""
+                  }
+                  tagBorderWidth={
+                    typeof elementRecord.tagBorderWidth === "string"
+                      ? elementRecord.tagBorderWidth
+                      : ""
+                  }
+                  tagShape={typeof elementRecord.tagShape === "string" ? elementRecord.tagShape : ""}
                   emojiIcon={typeof elementRecord.emojiIcon === "string" ? elementRecord.emojiIcon : ""}
                   borderWidth={
                     typeof elementRecord.borderWidth === "number"
@@ -338,6 +408,7 @@ function RowBlock({
   const badge = row.settings?.badge?.trim() ?? "";
   const tagPosition = asTagPosition(row.settings?.tagPosition);
   const tagSize = asTagSize(row.settings?.tagSize);
+  const tagShape = asTagShape(row.settings?.tagShape);
   const emojiIcon = row.settings?.emojiIcon?.trim() ?? "";
 
   return (
@@ -347,7 +418,7 @@ function RowBlock({
         row.settings
       )} ${
         isDragging ? "opacity-70" : ""
-      }`}
+      } ${getNodeShadowClass(row.settings)}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -356,9 +427,15 @@ function RowBlock({
     >
       {badge ? (
         <span
-          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+          className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
             tagPosition
-          )} ${getTagSizeClasses(tagSize)}`}
+          )} ${getTagSizeClasses(tagSize)} ${getTagShapeClasses(tagShape)}`}
+          style={getTagInlineStyle({
+            backgroundColor: row.settings?.tagBgColor,
+            textColor: row.settings?.tagTextColor,
+            borderStyle: asTagBorderStyle(row.settings?.tagBorderStyle),
+            borderWidth: asTagBorderWidth(row.settings?.tagBorderWidth),
+          })}
         >
           {badge}
         </span>
@@ -502,6 +579,7 @@ function ContainerBlock({
   const badge = settings?.badge?.trim() ?? "";
   const tagPosition = asTagPosition(settings?.tagPosition);
   const tagSize = asTagSize(settings?.tagSize);
+  const tagShape = asTagShape(settings?.tagShape);
   const emojiIcon = settings?.emojiIcon?.trim() ?? "";
 
   return (
@@ -511,7 +589,7 @@ function ContainerBlock({
         settings
       )} ${
         isDragging ? "opacity-70" : ""
-      }`}
+      } ${getNodeShadowClass(settings)}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -520,9 +598,15 @@ function ContainerBlock({
     >
       {badge ? (
         <span
-          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+          className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
             tagPosition
-          )} ${getTagSizeClasses(tagSize)}`}
+          )} ${getTagSizeClasses(tagSize)} ${getTagShapeClasses(tagShape)}`}
+          style={getTagInlineStyle({
+            backgroundColor: settings?.tagBgColor,
+            textColor: settings?.tagTextColor,
+            borderStyle: asTagBorderStyle(settings?.tagBorderStyle),
+            borderWidth: asTagBorderWidth(settings?.tagBorderWidth),
+          })}
         >
           {badge}
         </span>
@@ -659,6 +743,7 @@ function StageBlock({
   const badge = settings?.badge?.trim() ?? "";
   const tagPosition = asTagPosition(settings?.tagPosition);
   const tagSize = asTagSize(settings?.tagSize);
+  const tagShape = asTagShape(settings?.tagShape);
   const emojiIcon = settings?.emojiIcon?.trim() ?? "";
   const [isFolded, setIsFolded] = useState(false);
 
@@ -667,7 +752,7 @@ function StageBlock({
       ref={setNodeRef}
       className={`relative overflow-visible space-y-2 rounded-lg border-2 border-dashed border-border p-4 ${
         isDragging ? "opacity-70" : ""
-      }`}
+      } ${getNodeShadowClass(settings)}`}
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
@@ -676,9 +761,15 @@ function StageBlock({
     >
       {badge ? (
         <span
-          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+          className={`absolute z-20 bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
             tagPosition
-          )} ${getTagSizeClasses(tagSize)}`}
+          )} ${getTagSizeClasses(tagSize)} ${getTagShapeClasses(tagShape)}`}
+          style={getTagInlineStyle({
+            backgroundColor: settings?.tagBgColor,
+            textColor: settings?.tagTextColor,
+            borderStyle: asTagBorderStyle(settings?.tagBorderStyle),
+            borderWidth: asTagBorderWidth(settings?.tagBorderWidth),
+          })}
         >
           {badge}
         </span>

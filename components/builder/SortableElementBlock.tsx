@@ -3,7 +3,17 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { t } from "@/lib/i18n";
-import { asTagPosition, asTagSize, getTagPositionClasses, getTagSizeClasses } from "@/lib/utils/tag";
+import {
+  asTagBorderStyle,
+  asTagBorderWidth,
+  asTagPosition,
+  asTagShape,
+  asTagSize,
+  getTagInlineStyle,
+  getTagPositionClasses,
+  getTagShapeClasses,
+  getTagSizeClasses,
+} from "@/lib/utils/tag";
 
 interface SortableElementBlockProps {
   sortableId: string;
@@ -12,6 +22,11 @@ interface SortableElementBlockProps {
   badgeText?: string;
   tagPosition?: string;
   tagSize?: string;
+  tagBgColor?: string;
+  tagTextColor?: string;
+  tagBorderStyle?: string;
+  tagBorderWidth?: string;
+  tagShape?: string;
   emojiIcon?: string;
   borderWidth?: number;
   borderColor?: string;
@@ -43,6 +58,11 @@ export function SortableElementBlock({
   badgeText,
   tagPosition,
   tagSize,
+  tagBgColor,
+  tagTextColor,
+  tagBorderStyle,
+  tagBorderWidth,
+  tagShape,
   emojiIcon,
   borderWidth,
   borderColor,
@@ -73,6 +93,7 @@ export function SortableElementBlock({
         : "";
   const resolvedTagPosition = asTagPosition(tagPosition);
   const resolvedTagSize = asTagSize(tagSize);
+  const resolvedTagShape = asTagShape(tagShape);
 
   return (
     <div
@@ -100,9 +121,15 @@ export function SortableElementBlock({
     >
       {badgeText ? (
         <span
-          className={`absolute z-20 rounded-full border border-border bg-primary text-primary-foreground shadow-sm ${getTagPositionClasses(
+          className={`absolute z-20 shadow-sm bg-primary text-primary-foreground ${getTagPositionClasses(
             resolvedTagPosition
-          )} ${getTagSizeClasses(resolvedTagSize)}`}
+          )} ${getTagSizeClasses(resolvedTagSize)} ${getTagShapeClasses(resolvedTagShape)}`}
+          style={getTagInlineStyle({
+            backgroundColor: tagBgColor,
+            textColor: tagTextColor,
+            borderStyle: asTagBorderStyle(tagBorderStyle),
+            borderWidth: asTagBorderWidth(tagBorderWidth),
+          })}
         >
           {badgeText}
         </span>
