@@ -18,6 +18,7 @@ import { LongTextElement } from "@/components/elements/input/LongTextElement";
 import { AdvancedRepeaterElement } from "@/components/elements/input/AdvancedRepeaterElement";
 import { RepeaterListElement } from "@/components/elements/input/RepeaterListElement";
 import { ShortTextElement } from "@/components/elements/input/ShortTextElement";
+import type { FieldLockContext } from "@/components/elements/fieldLock";
 import { createClient } from "@/lib/supabase/client";
 import type { Element, GroupValue } from "@/lib/types";
 
@@ -30,6 +31,7 @@ interface ElementRendererProps {
   groupMembers?: string[];
   groupName?: string;
   hackathonName?: string;
+  fieldLock?: FieldLockContext;
   wrapperVisual?: {
     textColor?: string;
     backgroundColor?: string;
@@ -132,6 +134,7 @@ export function ElementRenderer({
   groupMembers = [],
   groupName = "",
   hackathonName = "",
+  fieldLock,
   wrapperVisual,
   themeMeta,
   onValueSaved,
@@ -265,7 +268,13 @@ export function ElementRenderer({
       const placeholder = asString(element.config.placeholder);
       const value = asString(groupValue?.value);
       return (
-        <ShortTextElement placeholder={placeholder} value={value} onSave={saveInputValue} />
+        <ShortTextElement
+          placeholder={placeholder}
+          value={value}
+          onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldName={`${element.id}:value`}
+        />
       );
     }
 
@@ -273,7 +282,13 @@ export function ElementRenderer({
       const placeholder = asString(element.config.placeholder);
       const value = asString(groupValue?.value);
       return (
-        <LongTextElement placeholder={placeholder} value={value} onSave={saveInputValue} />
+        <LongTextElement
+          placeholder={placeholder}
+          value={value}
+          onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldName={`${element.id}:value`}
+        />
       );
     }
 
@@ -287,6 +302,8 @@ export function ElementRenderer({
           addButtonText={addButtonText}
           value={value}
           onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldPrefix={`${element.id}:items`}
         />
       );
     }
@@ -318,6 +335,8 @@ export function ElementRenderer({
           addButtonText={addButtonText}
           value={value}
           onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldPrefix={`${element.id}:rows`}
         />
       );
     }
@@ -337,6 +356,8 @@ export function ElementRenderer({
           groupName={groupName}
           groupMembers={groupMembers}
           onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldPrefix={`${element.id}:research`}
         />
       );
     }
@@ -359,6 +380,8 @@ export function ElementRenderer({
           groupMembers={groupMembers}
           printElementId={`print-view-${element.id}`}
           onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldPrefix={`${element.id}:position`}
         />
       );
     }
@@ -376,6 +399,8 @@ export function ElementRenderer({
           }}
           printElementId={`print-view-${element.id}`}
           onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldPrefix={`${element.id}:pitch`}
         />
       );
     }
@@ -406,6 +431,8 @@ export function ElementRenderer({
           inputPlaceholder={asString(element.config.inputPlaceholder)}
           value={value}
           onSave={saveInputValue}
+          fieldLock={fieldLock}
+          lockFieldPrefix={`${element.id}:cards`}
         />
       );
     }

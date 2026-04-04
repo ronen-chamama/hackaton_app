@@ -17,7 +17,6 @@ export interface AppUser {
 export interface Group {
   id: string;
   name: string;
-  hackathon_id: string;
 }
 
 // ---------------------------------------------------------------------------

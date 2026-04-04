@@ -1,12 +1,15 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import type {
+  RealtimeChannel,
+  RealtimePostgresChangesPayload,
+} from "@supabase/supabase-js";
 import { RuntimeHeader } from "@/components/runtime/Header";
 import { StageNav } from "@/components/runtime/StageNav";
 import { StageRenderer } from "@/components/runtime/StageRenderer";
 import { t } from "@/lib/i18n";
-import { subscribeToGroupValues } from "@/lib/realtime";
 import { createClient } from "@/lib/supabase/client";
 import { resolveEnabledThemeName } from "@/lib/themes";
 import type { GroupValue, GroupValueMap, Hackathon } from "@/lib/types";
@@ -33,8 +36,13 @@ export default function StudentRuntimePage() {
   const [groupName, setGroupName] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [groupValues, setGroupValues] = useState<GroupValueMap>({});
+  const [lockedFields, setLockedFields] = useState<Record<string, string>>({});
+  const [lockStateGroupId, setLockStateGroupId] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState("");
+  const [activeField, setActiveField] = useState<string | null>(null);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [isUnassignedToGroup, setIsUnassignedToGroup] = useState(false);
+  const roomRef = useRef<RealtimeChannel | null>(null);
 
   // ---------------------------------------------------------------------------
   // Group name save — called by RuntimeHeader after its 600 ms debounce.
@@ -80,7 +88,7 @@ export default function StudentRuntimePage() {
 
         const { data: appUser, error: appUserError } = await supabase
           .from("users")
-          .select("group_id, role")
+          .select("group_id, role, name")
           .eq("id", user.id)
           .single();
 
@@ -90,6 +98,12 @@ export default function StudentRuntimePage() {
 
         const userGroupId = (appUser?.group_id as string | null) ?? null;
         const userRole = (appUser?.role as string | null) ?? "user";
+        const resolvedUserName =
+          (appUser?.name as string | null)?.trim() ||
+          user.user_metadata?.full_name ||
+          user.email ||
+          "";
+        setCurrentUserName(resolvedUserName);
         const isPrivilegedUser = userRole === "admin" || userRole === "super-admin";
         const effectiveGroupId =
           isPrivilegedUser && inspectGroupId ? inspectGroupId : userGroupId;
@@ -176,6 +190,34 @@ export default function StudentRuntimePage() {
           return;
         }
 
+        const { data: protocolRow, error: protocolLookupError } = await supabase
+          .from("hackathon_protocols")
+          .select("id")
+          .eq("hackathon_id", typedHackathon.id)
+          .eq("group_id", effectiveGroupId)
+          .maybeSingle();
+
+        if (protocolLookupError) {
+          throw protocolLookupError;
+        }
+
+        if (!protocolRow) {
+          const { error: protocolInsertError } = await supabase
+            .from("hackathon_protocols")
+            .insert({
+              hackathon_id: typedHackathon.id,
+              group_id: effectiveGroupId,
+            });
+
+          const duplicateKeyCode = "23505";
+          if (
+            protocolInsertError &&
+            protocolInsertError.code !== duplicateKeyCode
+          ) {
+            throw protocolInsertError;
+          }
+        }
+
         const { data: valuesRows, error: valuesError } = await supabase
           .from("group_values")
           .select("id, hackathon_id, group_id, element_id, value, updated_at, updated_by")
@@ -214,33 +256,140 @@ export default function StudentRuntimePage() {
 
   useEffect(() => {
     if (!groupId || !activeHackathon) {
+      roomRef.current = null;
       return;
     }
 
-    const channel = subscribeToGroupValues({
-      supabase,
-      groupId,
-      hackathonId: activeHackathon.id,
-      onChange: (row, eventType) => {
-        // Keep local state in sync immediately when realtime payloads arrive.
-        setGroupValues((prev) => {
-          if (eventType === "DELETE") {
-            const next = { ...prev };
-            delete next[row.element_id];
-            return next;
-          }
-          return {
-            ...prev,
-            [row.element_id]: row,
-          };
-        });
+    const room = supabase.channel(`group_room_${groupId}`, {
+      config: {
+        presence: {
+          key: userId || `${groupId}-presence`,
+        },
       },
     });
+    roomRef.current = room;
+
+    const applyGroupValueChange = (
+      payload: RealtimePostgresChangesPayload<GroupValue>,
+      eventType: "INSERT" | "UPDATE" | "DELETE"
+    ) => {
+      const row =
+        eventType === "DELETE"
+          ? (payload.old as GroupValue)
+          : (payload.new as GroupValue);
+
+      if (!row || row.hackathon_id !== activeHackathon.id) {
+        return;
+      }
+
+      setGroupValues((prev) => {
+        if (eventType === "DELETE") {
+          const next = { ...prev };
+          delete next[row.element_id];
+          return next;
+        }
+        return {
+          ...prev,
+          [row.element_id]: row,
+        };
+      });
+    };
+
+    room
+      .on("presence", { event: "sync" }, () => {
+        const presenceState = room.presenceState<{
+          fieldName?: string;
+          userName?: string;
+        }>();
+
+        const nextLockedFields: Record<string, string> = {};
+        Object.values(presenceState).forEach((entries) => {
+          const entry = entries[entries.length - 1];
+          if (
+            entry &&
+            typeof entry.fieldName === "string" &&
+            entry.fieldName &&
+            typeof entry.userName === "string" &&
+            entry.userName
+          ) {
+            nextLockedFields[entry.fieldName] = entry.userName;
+          }
+        });
+
+        setLockedFields(nextLockedFields);
+        setLockStateGroupId(groupId);
+      })
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "group_values",
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<GroupValue>) => {
+          applyGroupValueChange(payload, "UPDATE");
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "group_values",
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<GroupValue>) => {
+          applyGroupValueChange(payload, "INSERT");
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "group_values",
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload: RealtimePostgresChangesPayload<GroupValue>) => {
+          applyGroupValueChange(payload, "DELETE");
+        }
+      )
+      .subscribe();
 
     return () => {
-      void channel.unsubscribe();
+      roomRef.current = null;
+      setActiveField(null);
+      void supabase.removeChannel(room);
     };
-  }, [activeHackathon, groupId, supabase]);
+  }, [activeHackathon, groupId, supabase, userId]);
+
+  const handleFieldFocus = useCallback((fieldName: string) => {
+    setActiveField(fieldName);
+  }, []);
+
+  const handleFieldBlur = useCallback(() => {
+    setActiveField(null);
+  }, []);
+
+  useEffect(() => {
+    const room = roomRef.current;
+    const editorName = currentUserName || userId || "";
+    if (!room || !editorName) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      void room.track({
+        fieldName: activeField,
+        userName: editorName,
+      });
+    }, 150);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [activeField, currentUserName, userId, groupId, activeHackathon?.id]);
 
   const stages = activeHackathon?.definition?.stages ?? [];
   const stageCount = stages.length;
@@ -320,6 +469,10 @@ export default function StudentRuntimePage() {
           hackathonId={activeHackathon.id}
           groupId={groupId}
           userId={userId}
+          lockedFields={lockStateGroupId === groupId ? lockedFields : {}}
+          currentUserName={currentUserName}
+          onFieldFocus={handleFieldFocus}
+          onFieldBlur={handleFieldBlur}
           groupMembers={groupMembers}
           groupName={groupName}
           hackathonName={activeHackathon.definition.title || activeHackathon.title}

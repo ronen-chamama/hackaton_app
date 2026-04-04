@@ -19,13 +19,8 @@ export default async function AdminGroupsPage({ searchParams }: GroupsPageProps)
     .limit(1)
     .maybeSingle();
 
-  let groupsQuery = supabase.from("groups").select("*");
-  if (activeHackathon?.id) {
-    groupsQuery = groupsQuery.eq("hackathon_id", activeHackathon.id);
-  }
-
   const [{ data: groups }, { data: users }] = await Promise.all([
-    groupsQuery,
+    supabase.from("groups").select("*"),
     supabase
       .from("users")
       .select("id, email, name, role, group_id, home_group")

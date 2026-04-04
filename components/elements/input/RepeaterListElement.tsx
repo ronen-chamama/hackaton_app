@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FieldLockBadge } from "@/components/elements/FieldLockBadge";
+import {
+  blurField,
+  focusField,
+  resolveFieldLock,
+  type FieldLockContext,
+} from "@/components/elements/fieldLock";
 import { t } from "@/lib/i18n";
 
 interface RepeaterListElementProps {
@@ -8,6 +15,8 @@ interface RepeaterListElementProps {
   addButtonText: string;
   value: string[];
   onSave: (value: string[]) => Promise<void>;
+  fieldLock?: FieldLockContext;
+  lockFieldPrefix?: string;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -21,10 +30,13 @@ export function RepeaterListElement({
   addButtonText,
   value,
   onSave,
+  fieldLock,
+  lockFieldPrefix = "",
 }: RepeaterListElementProps) {
   const [draft, setDraft] = useState<string[]>(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(normalize(value));
+  const incomingNormalized = normalize(value);
 
   useEffect(() => {
     return () => {
@@ -33,6 +45,18 @@ export function RepeaterListElement({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (incomingNormalized === lastSavedRef.current) {
+      return;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    lastSavedRef.current = incomingNormalized;
+    setDraft(value);
+  }, [incomingNormalized]);
 
   const saveNow = async (nextValue: string[]) => {
     const nextNormalized = normalize(nextValue);
@@ -76,21 +100,42 @@ export function RepeaterListElement({
     <div className="space-y-2">
       {draft.map((item, index) => (
         <div key={`row-${index}`} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={item}
-            placeholder={placeholder}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-            onChange={(event) => {
-              updateItem(index, event.target.value);
-            }}
-            onBlur={() => {
-              if (timerRef.current) {
-                clearTimeout(timerRef.current);
-              }
-              void saveNow(draft);
-            }}
-          />
+          <div className="relative flex-1">
+            {(() => {
+              const fieldName = lockFieldPrefix
+                ? `${lockFieldPrefix}:${index}`
+                : "";
+              const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+              return (
+                <>
+                  <FieldLockBadge
+                    lockedBy={lockedBy}
+                    currentUserName={fieldLock?.currentUserName ?? ""}
+                  />
+                  <input
+                    type="text"
+                    value={item}
+                    placeholder={placeholder}
+                    disabled={isLocked}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                    onFocus={() => {
+                      focusField(fieldLock, fieldName);
+                    }}
+                    onChange={(event) => {
+                      updateItem(index, event.target.value);
+                    }}
+                    onBlur={() => {
+                      blurField(fieldLock);
+                      if (timerRef.current) {
+                        clearTimeout(timerRef.current);
+                      }
+                      void saveNow(draft);
+                    }}
+                  />
+                </>
+              );
+            })()}
+          </div>
           <button
             type="button"
             className="rounded-lg border border-danger/35 px-3 py-2 text-sm text-danger hover:bg-danger/10"

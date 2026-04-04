@@ -154,16 +154,10 @@ export async function importRosterCsv(formData: FormData) {
 
 export async function createHackathonGroup(groupPrefix?: string) {
   const supabase = await getAdminClient();
-  const activeHackathonId = await getActiveHackathonId(supabase);
-
-  if (!activeHackathonId) {
-    throw new Error("No active hackathon");
-  }
 
   const { count } = await supabase
     .from("groups")
-    .select("id", { count: "exact", head: true })
-    .eq("hackathon_id", activeHackathonId);
+    .select("id", { count: "exact", head: true });
 
   const safePrefix = groupPrefix?.trim() || t("groupPrefix");
   const nextName = `${safePrefix} ${(count ?? 0) + 1}`;
@@ -172,7 +166,6 @@ export async function createHackathonGroup(groupPrefix?: string) {
     .from("groups")
     .insert({
       name: nextName,
-      hackathon_id: activeHackathonId,
     })
     .select("id, name")
     .single();
@@ -183,7 +176,6 @@ export async function createHackathonGroup(groupPrefix?: string) {
       .from("groups")
       .insert({
         name: nextName,
-        hackathon_id: activeHackathonId,
       })
       .select("id, name")
       .single();
@@ -320,20 +312,19 @@ export async function exportGroupsForPrintData() {
   const supabase = await getAdminClient();
   const activeHackathonId = await getActiveHackathonId(supabase);
 
-  if (!activeHackathonId) {
-    return { ok: false as const, error: "No active hackathon" };
+  let hackathonRow: Record<string, unknown> | null = null;
+  if (activeHackathonId) {
+    const { data } = await supabase
+      .from("hackathons")
+      .select("title")
+      .eq("id", activeHackathonId)
+      .maybeSingle();
+    hackathonRow = (data as Record<string, unknown> | null) ?? null;
   }
-
-  const { data: hackathonRow } = await supabase
-    .from("hackathons")
-    .select("title")
-    .eq("id", activeHackathonId)
-    .maybeSingle();
 
   const { data: groups, error: groupsError } = await supabase
     .from("groups")
     .select("id, name")
-    .eq("hackathon_id", activeHackathonId)
     .order("name");
 
   if (groupsError) {
@@ -384,9 +375,9 @@ export async function exportGroupsForPrintData() {
   ];
 
   const hackathonTitle =
-    (hackathonRow as Record<string, unknown> | null)?.title &&
-    typeof (hackathonRow as Record<string, unknown>).title === "string"
-      ? String((hackathonRow as Record<string, unknown>).title)
+    hackathonRow?.title &&
+    typeof hackathonRow.title === "string"
+      ? String(hackathonRow.title)
       : "";
 
   sheet.mergeCells("A1:G2");
@@ -454,14 +445,32 @@ export async function exportGroupsForPrintData() {
 export async function resetRosterData() {
   const supabase = await getAdminClient();
 
-  const { error: usersError } = await supabase
+  const { error: clearGroupIdsError } = await supabase
     .from("users")
-    .update({ group_id: null, role: "user" })
+    .update({ group_id: null })
+    .not("group_id", "is", null);
+
+  if (clearGroupIdsError) {
+    return { ok: false as const, error: clearGroupIdsError.message };
+  }
+
+  const { error: rolesError } = await supabase
+    .from("users")
+    .update({ role: "user" })
     .neq("role", "admin")
     .neq("role", "super-admin");
 
-  if (usersError) {
-    return { ok: false as const, error: usersError.message };
+  if (rolesError) {
+    return { ok: false as const, error: rolesError.message };
+  }
+
+  const { error: deleteGroupsError } = await supabase
+    .from("groups")
+    .delete()
+    .not("id", "is", null);
+
+  if (deleteGroupsError) {
+    return { ok: false as const, error: deleteGroupsError.message };
   }
 
   revalidatePath("/admin/groups");

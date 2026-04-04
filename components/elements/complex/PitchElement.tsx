@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Printer } from "lucide-react";
+import { FieldLockBadge } from "@/components/elements/FieldLockBadge";
+import {
+  blurField,
+  focusField,
+  resolveFieldLock,
+  type FieldLockContext,
+} from "@/components/elements/fieldLock";
 import { t } from "@/lib/i18n";
 import { printElement } from "@/lib/utils/print";
 
@@ -17,6 +24,8 @@ interface PitchElementProps {
   value: PitchValue;
   onSave: (value: PitchValue) => Promise<void>;
   printElementId: string;
+  fieldLock?: FieldLockContext;
+  lockFieldPrefix?: string;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -37,10 +46,17 @@ const fieldOrder: Array<{
   { key: "closing", labelKey: "closing", screenColSpan: "col-span-2" },
 ];
 
-export function PitchElement({ value, onSave, printElementId }: PitchElementProps) {
+export function PitchElement({
+  value,
+  onSave,
+  printElementId,
+  fieldLock,
+  lockFieldPrefix = "",
+}: PitchElementProps) {
   const [draft, setDraft] = useState<PitchValue>(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(normalize(value));
+  const incomingNormalized = normalize(value);
 
   useEffect(() => {
     return () => {
@@ -49,6 +65,18 @@ export function PitchElement({ value, onSave, printElementId }: PitchElementProp
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (incomingNormalized === lastSavedRef.current) {
+      return;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    lastSavedRef.current = incomingNormalized;
+    setDraft(value);
+  }, [incomingNormalized]);
 
   const saveNow = async (nextValue: PitchValue) => {
     const nextNormalized = normalize(nextValue);
@@ -81,6 +109,9 @@ export function PitchElement({ value, onSave, printElementId }: PitchElementProp
     void saveNow(draft);
   };
 
+  const lockName = (suffix: string) =>
+    lockFieldPrefix ? `${lockFieldPrefix}:${suffix}` : "";
+
   return (
     <section className="space-y-4">
       <div className="flex justify-end print:hidden">
@@ -100,15 +131,26 @@ export function PitchElement({ value, onSave, printElementId }: PitchElementProp
             key={`screen-${field.key}`}
             className={`${field.screenColSpan} rounded-xl border border-border bg-surface p-4`}
           >
-            <label className="block space-y-1">
+            <label className="relative block space-y-1">
               <span className="text-sm font-medium text-foreground/80">
                 {t(field.labelKey)}
               </span>
               <textarea
                 value={draft[field.key]}
-                className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                disabled={resolveFieldLock(fieldLock, lockName(String(field.key))).isLocked}
+                className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                onFocus={() => {
+                  focusField(fieldLock, lockName(String(field.key)));
+                }}
                 onChange={(event) => patchField(field.key, event.target.value)}
-                onBlur={flushOnBlur}
+                onBlur={() => {
+                  blurField(fieldLock);
+                  flushOnBlur();
+                }}
+              />
+              <FieldLockBadge
+                lockedBy={resolveFieldLock(fieldLock, lockName(String(field.key))).lockedBy}
+                currentUserName={fieldLock?.currentUserName ?? ""}
               />
             </label>
           </article>

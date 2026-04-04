@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Printer } from "lucide-react";
+import { FieldLockBadge } from "@/components/elements/FieldLockBadge";
+import {
+  blurField,
+  focusField,
+  resolveFieldLock,
+  type FieldLockContext,
+} from "@/components/elements/fieldLock";
 import { t } from "@/lib/i18n";
 import { printElement } from "@/lib/utils/print";
 
@@ -19,6 +26,8 @@ interface ResearchBlockElementProps {
   hackathonName?: string;
   groupName?: string;
   groupMembers?: string[];
+  fieldLock?: FieldLockContext;
+  lockFieldPrefix?: string;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -34,10 +43,13 @@ export function ResearchBlockElement({
   hackathonName = "",
   groupName = "",
   groupMembers = [],
+  fieldLock,
+  lockFieldPrefix = "",
 }: ResearchBlockElementProps) {
   const [draft, setDraft] = useState<ResearchBlockValue>(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(normalize(value));
+  const incomingNormalized = normalize(value);
 
   useEffect(() => {
     return () => {
@@ -46,6 +58,18 @@ export function ResearchBlockElement({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (incomingNormalized === lastSavedRef.current) {
+      return;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    lastSavedRef.current = incomingNormalized;
+    setDraft(value);
+  }, [incomingNormalized]);
 
   const saveNow = async (nextValue: ResearchBlockValue) => {
     const nextNormalized = normalize(nextValue);
@@ -88,6 +112,9 @@ export function ResearchBlockElement({
     patchDraft({ [key]: nextRows });
   };
 
+  const lockName = (suffix: string) =>
+    lockFieldPrefix ? `${lockFieldPrefix}:${suffix}` : "";
+
   return (
     <section className="space-y-4 rounded-lg border border-border bg-surface p-4 print:break-inside-avoid print:border-none print:bg-transparent print:p-0">
       <div className="space-y-4 print:hidden">
@@ -106,39 +133,73 @@ export function ResearchBlockElement({
           <span className="text-sm font-medium text-foreground/80">
             {t("researchTitle")}
           </span>
-          <input
-            type="text"
-            value={draft.title}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            onChange={(event) => patchDraft({ title: event.target.value })}
-            onBlur={() => {
-              if (timerRef.current) {
-                clearTimeout(timerRef.current);
-              }
-              void saveNow(draft);
-            }}
-          />
+          {(() => {
+            const fieldName = lockName("title");
+            const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+            return (
+              <div className="relative">
+                <FieldLockBadge
+                  lockedBy={lockedBy}
+                  currentUserName={fieldLock?.currentUserName ?? ""}
+                />
+                <input
+                  type="text"
+                  value={draft.title}
+                  disabled={isLocked}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                  onFocus={() => {
+                    focusField(fieldLock, fieldName);
+                  }}
+                  onChange={(event) => patchDraft({ title: event.target.value })}
+                  onBlur={() => {
+                    blurField(fieldLock);
+                    if (timerRef.current) {
+                      clearTimeout(timerRef.current);
+                    }
+                    void saveNow(draft);
+                  }}
+                />
+              </div>
+            );
+          })()}
         </label>
 
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground/80">{t("findings")}</p>
           {draft.findings.map((item, index) => (
             <div key={`finding-${index}`} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={item}
-                placeholder={t("findingPlaceholder")}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                onChange={(event) =>
-                  updateRow("findings", index, event.target.value)
-                }
-                onBlur={() => {
-                  if (timerRef.current) {
-                    clearTimeout(timerRef.current);
-                  }
-                  void saveNow(draft);
-                }}
-              />
+              {(() => {
+                const fieldName = lockName(`findings:${index}`);
+                const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+                return (
+                  <div className="relative flex-1">
+                    <FieldLockBadge
+                      lockedBy={lockedBy}
+                      currentUserName={fieldLock?.currentUserName ?? ""}
+                    />
+                    <input
+                      type="text"
+                      value={item}
+                      placeholder={t("findingPlaceholder")}
+                      disabled={isLocked}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                      onFocus={() => {
+                        focusField(fieldLock, fieldName);
+                      }}
+                      onChange={(event) =>
+                        updateRow("findings", index, event.target.value)
+                      }
+                      onBlur={() => {
+                        blurField(fieldLock);
+                        if (timerRef.current) {
+                          clearTimeout(timerRef.current);
+                        }
+                        void saveNow(draft);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               <button
                 type="button"
                 className="rounded-lg border border-danger/40 px-3 py-2 text-sm text-danger hover:bg-danger/10"
@@ -161,19 +222,38 @@ export function ResearchBlockElement({
           <p className="text-sm font-medium text-foreground/80">{t("sources")}</p>
           {draft.sources.map((item, index) => (
             <div key={`source-${index}`} className="flex items-center gap-2">
-              <input
-                type="text"
-                value={item}
-                placeholder={t("sourcePlaceholder")}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                onChange={(event) => updateRow("sources", index, event.target.value)}
-                onBlur={() => {
-                  if (timerRef.current) {
-                    clearTimeout(timerRef.current);
-                  }
-                  void saveNow(draft);
-                }}
-              />
+              {(() => {
+                const fieldName = lockName(`sources:${index}`);
+                const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+                return (
+                  <div className="relative flex-1">
+                    <FieldLockBadge
+                      lockedBy={lockedBy}
+                      currentUserName={fieldLock?.currentUserName ?? ""}
+                    />
+                    <input
+                      type="text"
+                      value={item}
+                      placeholder={t("sourcePlaceholder")}
+                      disabled={isLocked}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                      onFocus={() => {
+                        focusField(fieldLock, fieldName);
+                      }}
+                      onChange={(event) =>
+                        updateRow("sources", index, event.target.value)
+                      }
+                      onBlur={() => {
+                        blurField(fieldLock);
+                        if (timerRef.current) {
+                          clearTimeout(timerRef.current);
+                        }
+                        void saveNow(draft);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               <button
                 type="button"
                 className="rounded-lg border border-danger/40 px-3 py-2 text-sm text-danger hover:bg-danger/10"
@@ -194,17 +274,34 @@ export function ResearchBlockElement({
 
         <label className="block space-y-1">
           <span className="text-sm font-medium text-foreground/80">{t("summary")}</span>
-          <textarea
-            value={draft.summary}
-            className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            onChange={(event) => patchDraft({ summary: event.target.value })}
-            onBlur={() => {
-              if (timerRef.current) {
-                clearTimeout(timerRef.current);
-              }
-              void saveNow(draft);
-            }}
-          />
+          {(() => {
+            const fieldName = lockName("summary");
+            const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+            return (
+              <div className="relative">
+                <FieldLockBadge
+                  lockedBy={lockedBy}
+                  currentUserName={fieldLock?.currentUserName ?? ""}
+                />
+                <textarea
+                  value={draft.summary}
+                  disabled={isLocked}
+                  className="min-h-24 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                  onFocus={() => {
+                    focusField(fieldLock, fieldName);
+                  }}
+                  onChange={(event) => patchDraft({ summary: event.target.value })}
+                  onBlur={() => {
+                    blurField(fieldLock);
+                    if (timerRef.current) {
+                      clearTimeout(timerRef.current);
+                    }
+                    void saveNow(draft);
+                  }}
+                />
+              </div>
+            );
+          })()}
         </label>
       </div>
 

@@ -1,6 +1,13 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FieldLockBadge } from "@/components/elements/FieldLockBadge";
+import {
+  blurField,
+  focusField,
+  resolveFieldLock,
+  type FieldLockContext,
+} from "@/components/elements/fieldLock";
 import { t } from "@/lib/i18n";
 
 interface CardBuilderItem {
@@ -18,6 +25,8 @@ interface CardBuilderElementProps {
   inputPlaceholder: string;
   value: CardBuilderItem[];
   onSave: (value: CardBuilderItem[]) => Promise<void>;
+  fieldLock?: FieldLockContext;
+  lockFieldPrefix?: string;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -50,11 +59,15 @@ export function CardBuilderElement({
   inputPlaceholder,
   value,
   onSave,
+  fieldLock,
+  lockFieldPrefix = "",
 }: CardBuilderElementProps) {
   const normalizedInitial = normalizeItems(value);
   const [draft, setDraft] = useState<CardBuilderItem[]>(normalizedInitial);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(normalize(normalizedInitial));
+  const incomingValue = normalizeItems(value);
+  const incomingNormalized = normalize(incomingValue);
 
   useEffect(() => {
     return () => {
@@ -63,6 +76,18 @@ export function CardBuilderElement({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (incomingNormalized === lastSavedRef.current) {
+      return;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    lastSavedRef.current = incomingNormalized;
+    setDraft(incomingValue);
+  }, [incomingNormalized]);
 
   const saveNow = async (nextValue: CardBuilderItem[]) => {
     const nextNormalized = normalize(nextValue);
@@ -124,46 +149,107 @@ export function CardBuilderElement({
             }`}
           >
             <div className="space-y-2">
-              <input
-                type="text"
-                value={card.title}
-                placeholder={titlePlaceholder}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                onChange={(event) => patchCard(index, { title: event.target.value })}
-                onBlur={() => {
-                  if (timerRef.current) {
-                    clearTimeout(timerRef.current);
-                  }
-                  void saveNow(draft);
-                }}
-              />
-              <textarea
-                value={card.description}
-                placeholder={descPlaceholder}
-                className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                onChange={(event) =>
-                  patchCard(index, { description: event.target.value })
-                }
-                onBlur={() => {
-                  if (timerRef.current) {
-                    clearTimeout(timerRef.current);
-                  }
-                  void saveNow(draft);
-                }}
-              />
-              <input
-                type="text"
-                value={card.input}
-                placeholder={inputPlaceholder}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                onChange={(event) => patchCard(index, { input: event.target.value })}
-                onBlur={() => {
-                  if (timerRef.current) {
-                    clearTimeout(timerRef.current);
-                  }
-                  void saveNow(draft);
-                }}
-              />
+              {(() => {
+                const titleField = lockFieldPrefix
+                  ? `${lockFieldPrefix}:${index}:title`
+                  : "";
+                const titleLock = resolveFieldLock(fieldLock, titleField);
+                return (
+                  <div className="relative">
+                    <FieldLockBadge
+                      lockedBy={titleLock.lockedBy}
+                      currentUserName={fieldLock?.currentUserName ?? ""}
+                    />
+                    <input
+                      type="text"
+                      value={card.title}
+                      placeholder={titlePlaceholder}
+                      disabled={titleLock.isLocked}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                      onFocus={() => {
+                        focusField(fieldLock, titleField);
+                      }}
+                      onChange={(event) =>
+                        patchCard(index, { title: event.target.value })
+                      }
+                      onBlur={() => {
+                        blurField(fieldLock);
+                        if (timerRef.current) {
+                          clearTimeout(timerRef.current);
+                        }
+                        void saveNow(draft);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
+              {(() => {
+                const descriptionField = lockFieldPrefix
+                  ? `${lockFieldPrefix}:${index}:description`
+                  : "";
+                const descriptionLock = resolveFieldLock(fieldLock, descriptionField);
+                return (
+                  <div className="relative">
+                    <FieldLockBadge
+                      lockedBy={descriptionLock.lockedBy}
+                      currentUserName={fieldLock?.currentUserName ?? ""}
+                    />
+                    <textarea
+                      value={card.description}
+                      placeholder={descPlaceholder}
+                      disabled={descriptionLock.isLocked}
+                      className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                      onFocus={() => {
+                        focusField(fieldLock, descriptionField);
+                      }}
+                      onChange={(event) =>
+                        patchCard(index, { description: event.target.value })
+                      }
+                      onBlur={() => {
+                        blurField(fieldLock);
+                        if (timerRef.current) {
+                          clearTimeout(timerRef.current);
+                        }
+                        void saveNow(draft);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
+              {(() => {
+                const inputField = lockFieldPrefix
+                  ? `${lockFieldPrefix}:${index}:input`
+                  : "";
+                const inputLock = resolveFieldLock(fieldLock, inputField);
+                return (
+                  <div className="relative">
+                    <FieldLockBadge
+                      lockedBy={inputLock.lockedBy}
+                      currentUserName={fieldLock?.currentUserName ?? ""}
+                    />
+                    <input
+                      type="text"
+                      value={card.input}
+                      placeholder={inputPlaceholder}
+                      disabled={inputLock.isLocked}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                      onFocus={() => {
+                        focusField(fieldLock, inputField);
+                      }}
+                      onChange={(event) =>
+                        patchCard(index, { input: event.target.value })
+                      }
+                      onBlur={() => {
+                        blurField(fieldLock);
+                        if (timerRef.current) {
+                          clearTimeout(timerRef.current);
+                        }
+                        void saveNow(draft);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
               <button
                 type="button"
                 className="rounded-lg border border-danger/35 px-3 py-2 text-sm text-danger hover:bg-danger/10"

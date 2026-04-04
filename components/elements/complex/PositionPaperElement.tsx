@@ -2,6 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Printer } from "lucide-react";
+import { FieldLockBadge } from "@/components/elements/FieldLockBadge";
+import {
+  blurField,
+  focusField,
+  resolveFieldLock,
+  type FieldLockContext,
+} from "@/components/elements/fieldLock";
 import { t } from "@/lib/i18n";
 import { printElement } from "@/lib/utils/print";
 
@@ -22,6 +29,8 @@ interface PositionPaperElementProps {
   onSave: (value: PositionPaperValue) => Promise<void>;
   groupMembers?: string[];
   printElementId: string;
+  fieldLock?: FieldLockContext;
+  lockFieldPrefix?: string;
 }
 
 const SAVE_DEBOUNCE_MS = 600;
@@ -40,12 +49,20 @@ function normalize(value: PositionPaperValue): string {
 function LetterField({
   label,
   value,
+  lockedBy,
+  currentUserName,
+  disabled,
+  onFocus,
   onChange,
   onBlur,
   className,
 }: {
   label: string;
   value: string;
+  lockedBy: string;
+  currentUserName: string;
+  disabled: boolean;
+  onFocus: () => void;
   onChange: (value: string) => void;
   onBlur: () => void;
   className?: string;
@@ -55,12 +72,20 @@ function LetterField({
       <span className="text-sm font-medium text-foreground/80 print:text-base print:font-semibold">
         {label}
       </span>
-      <textarea
-        value={value}
-        className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary print:min-h-0 print:border-none print:bg-transparent print:px-0 print:py-0 print:text-base"
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-      />
+      <div className="relative">
+        <FieldLockBadge
+          lockedBy={lockedBy}
+          currentUserName={currentUserName}
+        />
+        <textarea
+          value={value}
+          disabled={disabled}
+          className="min-h-20 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70 print:min-h-0 print:border-none print:bg-transparent print:px-0 print:py-0 print:text-base"
+          onFocus={onFocus}
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
+        />
+      </div>
     </label>
   );
 }
@@ -70,10 +95,13 @@ export function PositionPaperElement({
   onSave,
   groupMembers = [],
   printElementId,
+  fieldLock,
+  lockFieldPrefix = "",
 }: PositionPaperElementProps) {
   const [draft, setDraft] = useState<PositionPaperValue>(value);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedRef = useRef(normalize(value));
+  const incomingNormalized = normalize(value);
 
   useEffect(() => {
     return () => {
@@ -82,6 +110,18 @@ export function PositionPaperElement({
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (incomingNormalized === lastSavedRef.current) {
+      return;
+    }
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    lastSavedRef.current = incomingNormalized;
+    setDraft(value);
+  }, [incomingNormalized]);
 
   const saveNow = async (nextValue: PositionPaperValue) => {
     const nextNormalized = normalize(nextValue);
@@ -113,6 +153,9 @@ export function PositionPaperElement({
     }
     void saveNow(draft);
   };
+
+  const lockName = (suffix: string) =>
+    lockFieldPrefix ? `${lockFieldPrefix}:${suffix}` : "";
 
   const now = new Date();
   const hebrewDateParts = new Intl.DateTimeFormat("he-IL-u-ca-hebrew", {
@@ -160,71 +203,172 @@ export function PositionPaperElement({
       <div className="grid grid-cols-2 gap-4 print:hidden">
         <label className="col-span-2 block space-y-1">
           <span className="text-sm font-medium text-foreground/80">{t("recipient")}</span>
-          <input
-            type="text"
-            value={draft.recipient}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            onChange={(event) => patchDraft({ recipient: event.target.value })}
-            onBlur={flushOnBlur}
-          />
+          {(() => {
+            const fieldName = lockName("recipient");
+            const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+            return (
+              <div className="relative">
+                <FieldLockBadge
+                  lockedBy={lockedBy}
+                  currentUserName={fieldLock?.currentUserName ?? ""}
+                />
+                <input
+                  type="text"
+                  value={draft.recipient}
+                  disabled={isLocked}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                  onFocus={() => {
+                    focusField(fieldLock, fieldName);
+                  }}
+                  onChange={(event) => patchDraft({ recipient: event.target.value })}
+                  onBlur={() => {
+                    blurField(fieldLock);
+                    flushOnBlur();
+                  }}
+                />
+              </div>
+            );
+          })()}
         </label>
         <label className="col-span-2 block space-y-1">
           <span className="text-sm font-medium text-foreground/80">{t("subject")}</span>
-          <input
-            type="text"
-            value={draft.subject}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            onChange={(event) => patchDraft({ subject: event.target.value })}
-            onBlur={flushOnBlur}
-          />
+          {(() => {
+            const fieldName = lockName("subject");
+            const { lockedBy, isLocked } = resolveFieldLock(fieldLock, fieldName);
+            return (
+              <div className="relative">
+                <FieldLockBadge
+                  lockedBy={lockedBy}
+                  currentUserName={fieldLock?.currentUserName ?? ""}
+                />
+                <input
+                  type="text"
+                  value={draft.subject}
+                  disabled={isLocked}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-70"
+                  onFocus={() => {
+                    focusField(fieldLock, fieldName);
+                  }}
+                  onChange={(event) => patchDraft({ subject: event.target.value })}
+                  onBlur={() => {
+                    blurField(fieldLock);
+                    flushOnBlur();
+                  }}
+                />
+              </div>
+            );
+          })()}
         </label>
         <LetterField
           label={t("background")}
           value={draft.background}
+          lockedBy={resolveFieldLock(fieldLock, lockName("background")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("background")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("background"));
+          }}
           onChange={(next) => patchDraft({ background: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-1"
         />
         <LetterField
           label={t("problem")}
           value={draft.problem}
+          lockedBy={resolveFieldLock(fieldLock, lockName("problem")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("problem")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("problem"));
+          }}
           onChange={(next) => patchDraft({ problem: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-1"
         />
         <LetterField
           label={t("affected")}
           value={draft.affected}
+          lockedBy={resolveFieldLock(fieldLock, lockName("affected")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("affected")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("affected"));
+          }}
           onChange={(next) => patchDraft({ affected: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-2"
         />
         <LetterField
           label={t("solution")}
           value={draft.solution}
+          lockedBy={resolveFieldLock(fieldLock, lockName("solution")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("solution")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("solution"));
+          }}
           onChange={(next) => patchDraft({ solution: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-2"
         />
         <LetterField
           label={t("advantages")}
           value={draft.advantages}
+          lockedBy={resolveFieldLock(fieldLock, lockName("advantages")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("advantages")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("advantages"));
+          }}
           onChange={(next) => patchDraft({ advantages: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-1"
         />
         <LetterField
           label={t("objections")}
           value={draft.objections}
+          lockedBy={resolveFieldLock(fieldLock, lockName("objections")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("objections")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("objections"));
+          }}
           onChange={(next) => patchDraft({ objections: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-1"
         />
         <LetterField
           label={t("actionPlan")}
           value={draft.action_plan}
+          lockedBy={resolveFieldLock(fieldLock, lockName("action_plan")).lockedBy}
+          currentUserName={fieldLock?.currentUserName ?? ""}
+          disabled={resolveFieldLock(fieldLock, lockName("action_plan")).isLocked}
+          onFocus={() => {
+            focusField(fieldLock, lockName("action_plan"));
+          }}
           onChange={(next) => patchDraft({ action_plan: next })}
-          onBlur={flushOnBlur}
+          onBlur={() => {
+            blurField(fieldLock);
+            flushOnBlur();
+          }}
           className="col-span-2"
         />
       </div>

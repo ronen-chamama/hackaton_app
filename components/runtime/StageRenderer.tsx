@@ -20,6 +20,10 @@ interface StageRendererProps {
   hackathonId: string;
   groupId: string | null;
   userId: string | null;
+  lockedFields: Record<string, string>;
+  currentUserName: string;
+  onFieldFocus: (fieldName: string) => void;
+  onFieldBlur: () => void;
   groupMembers?: string[];
   groupName?: string;
   hackathonName?: string;
@@ -283,6 +287,10 @@ export function StageRenderer({
   hackathonId,
   groupId,
   userId,
+  lockedFields,
+  currentUserName,
+  onFieldFocus,
+  onFieldBlur,
   groupMembers = [],
   groupName = "",
   hackathonName = "",
@@ -540,6 +548,12 @@ export function StageRenderer({
                         hackathonId={hackathonId}
                         groupId={groupId}
                         userId={userId}
+                        fieldLock={{
+                          lockedFields,
+                          currentUserName,
+                          onFocusField: onFieldFocus,
+                          onBlurField: onFieldBlur,
+                        }}
                         groupMembers={groupMembers}
                         groupName={groupName}
                         hackathonName={hackathonName}
